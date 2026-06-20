@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabase.js'
 import { requireAuth } from '../middleware/auth.js'
 import { generateRecommendations, getOrgRecommendations } from '../services/recommendations.js'
+import { runRecommendationEngine } from '../services/recommendation-engine.js'
 
 const updateStatusSchema = z.object({
   status: z.enum(['pending', 'applied', 'dismissed', 'in_progress']),
@@ -39,9 +40,14 @@ export async function recommendationRoutes(app: FastifyInstance): Promise<void> 
     const orgId = await getOrgId(req.user.id)
     if (!orgId) return reply.code(403).send({ data: null, error: { code: 'NO_ORG', message: 'User has no organization' } })
 
-    const { count, error } = await generateRecommendations(orgId)
+    // Run both engines in parallel — legacy + new rule engine
+    const [legacyResult, engineResult] = await Promise.all([
+      generateRecommendations(orgId),
+      runRecommendationEngine(orgId),
+    ])
+    const error = legacyResult.error ?? engineResult.error
     if (error) return reply.code(500).send({ data: null, error: { code: 'GENERATION_ERROR', message: error } })
-    return reply.send({ data: { generated: count }, error: null })
+    return reply.send({ data: { generated: legacyResult.count + engineResult.count }, error: null })
   })
 
   app.patch('/:id', async (req, reply) => {

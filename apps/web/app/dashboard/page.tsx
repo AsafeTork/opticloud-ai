@@ -1,23 +1,36 @@
 "use client";
+
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../src/hooks/useAuth";
 import { createClient } from "../../src/lib/supabase";
-import type { DashboardSummary, CloudAccount, Recommendation } from "@repo/types";
+import type {
+  DashboardSummary,
+  CloudAccount,
+  Recommendation,
+  CostTrendPoint,
+  Anomaly,
+} from "@repo/types";
+import { KpiCard } from "../../src/components/dashboard/KpiCard";
+import { CostTrendChart } from "../../src/components/dashboard/CostTrendChart";
+import { ProviderBreakdown } from "../../src/components/dashboard/ProviderBreakdown";
+import { AnomalyList } from "../../src/components/dashboard/AnomalyList";
+import { RecommendationsCritical } from "../../src/components/dashboard/RecommendationsCritical";
+import {
+  SkeletonKpiGrid,
+  SkeletonChart,
+  SkeletonList,
+} from "../../src/components/ui/Skeleton";
 
 const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 const TIMEOUT_MS = 15_000;
-
-// ─── Fetch helper (local — não usa o hook para evitar loading compartilhado) ──
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T | null> {
   const sb = createClient();
   const { data: { session } } = await sb.auth.getSession();
   const token = session?.access_token;
-
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
   try {
     const res = await fetch(`${API_URL}${path}`, {
       ...options,
@@ -38,55 +51,144 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T | nul
   }
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Nav items (role-aware) ───────────────────────────────────────────────────
 
-function StatCard({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
+type Tab = "overview" | "accounts" | "recs";
+
+const NAV_ITEMS: { id: Tab; label: string; roles?: string[] }[] = [
+  { id: "overview",  label: "Visão Geral" },
+  { id: "accounts",  label: "Contas" },
+  { id: "recs",      label: "Recomendações" },
+];
+
+// ─── Skeleton Dashboard ───────────────────────────────────────────────────────
+
+function DashboardSkeleton() {
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
-      <p className="text-sm text-gray-400 mb-1">{label}</p>
-      <p className={`text-3xl font-bold ${accent ?? "text-white"}`}>{value}</p>
-      {sub && <p className="text-xs text-gray-500 mt-1">{sub}</p>}
+    <div className="space-y-8" aria-busy="true" aria-label="Carregando dashboard">
+      <SkeletonKpiGrid />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2"><SkeletonChart /></div>
+        <SkeletonChart />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <SkeletonList rows={3} />
+        <SkeletonList rows={5} />
+      </div>
     </div>
   );
 }
 
-function SkeletonCard() {
-  return <div className="h-28 bg-gray-800 border border-gray-700 rounded-xl animate-pulse" />;
+// ─── Empty State ──────────────────────────────────────────────────────────────
+
+function EmptyState({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
+  return (
+    <div className="rounded-xl border border-[#2A2D3E] bg-[#1A1D27]/80 p-16 text-center">
+      <p className="text-5xl mb-4">☁️</p>
+      <h2 className="text-lg font-semibold text-[#E5E7EB] mb-2">Conecte sua primeira conta cloud</h2>
+      <p className="text-sm text-[#9CA3AF] max-w-xs mx-auto mb-6">
+        Adicione uma conta AWS, GCP ou Azure para começar a monitorar e otimizar seus custos com IA.
+      </p>
+      <button
+        onClick={() => onNavigate("accounts")}
+        className="px-6 py-3 rounded-xl bg-[#0066FF] text-white font-medium text-sm
+                   hover:bg-[#0052CC] focus-visible:ring-2 focus-visible:ring-[#0066FF] focus-visible:ring-offset-2
+                   focus-visible:ring-offset-[#0F1117] transition-colors min-h-[48px]"
+      >
+        Adicionar Conta
+      </button>
+    </div>
+  );
 }
 
-const PRIORITY_COLORS: Record<string, string> = {
-  critical: "text-red-400 bg-red-900/30 border-red-800",
-  high: "text-orange-400 bg-orange-900/30 border-orange-800",
-  medium: "text-yellow-400 bg-yellow-900/30 border-yellow-800",
-  low: "text-green-400 bg-green-900/30 border-green-800",
+// ─── Accounts Tab ─────────────────────────────────────────────────────────────
+
+const STATUS_BADGE: Record<string, string> = {
+  active:   "bg-[#00D4AA]/15 text-[#00D4AA]",
+  syncing:  "bg-[#0066FF]/15 text-[#0066FF]",
+  error:    "bg-[#FF4757]/15 text-[#FF4757]",
+  inactive: "bg-[#6B7280]/15 text-[#6B7280]",
 };
 
-const PROVIDER_LABELS: Record<string, string> = { aws: "AWS", gcp: "GCP", azure: "Azure" };
+const PROVIDER_LABEL: Record<string, string> = { aws: "AWS", gcp: "GCP", azure: "Azure" };
+
+function AccountsTab({ accounts, onRefresh }: { accounts: CloudAccount[]; onRefresh: () => void }) {
+  if (accounts.length === 0) {
+    return (
+      <div className="rounded-xl border border-[#2A2D3E] bg-[#1A1D27]/80 p-12 text-center">
+        <p className="text-3xl mb-3">🔌</p>
+        <p className="text-sm font-medium text-[#E5E7EB]">Nenhuma conta conectada</p>
+        <p className="text-xs text-[#6B7280] mt-1">Adicione uma conta cloud para começar</p>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <button
+          onClick={onRefresh}
+          className="text-xs px-3 py-2 rounded-lg bg-[#1A1D27] border border-[#2A2D3E]
+                     text-[#9CA3AF] hover:text-[#E5E7EB] focus-visible:ring-2 focus-visible:ring-[#0066FF]
+                     transition-colors min-h-[44px]"
+        >
+          Atualizar
+        </button>
+      </div>
+      {accounts.map((a) => (
+        <div key={a.id} className="rounded-xl border border-[#2A2D3E] bg-[#1A1D27]/80 p-4 hover:bg-[#222535] transition-colors">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-[#E5E7EB]">{a.account_name}</p>
+              <p className="text-xs text-[#6B7280]">{PROVIDER_LABEL[a.provider]} · {a.account_id}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              {a.monthly_cost_usd != null && (
+                <span className="text-sm font-bold text-[#E5E7EB]">
+                  ${a.monthly_cost_usd.toFixed(0)}/mês
+                </span>
+              )}
+              <span className={`text-xs px-2 py-1 rounded-full font-medium ${STATUS_BADGE[a.status] ?? ""}`}>
+                {a.status}
+              </span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user, loading: authLoading, signOut } = useAuth();
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+
+  const [summary, setSummary]   = useState<DashboardSummary | null>(null);
   const [accounts, setAccounts] = useState<CloudAccount[]>([]);
-  const [recs, setRecs] = useState<Recommendation[]>([]);
+  const [recs, setRecs]         = useState<Recommendation[]>([]);
+  const [trends, setTrends]     = useState<CostTrendPoint[]>([]);
+  const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "accounts" | "recs">("overview");
+  const [fetchError, setFetchError]   = useState<string | null>(null);
+  const [activeTab, setActiveTab]     = useState<Tab>("overview");
 
   const fetchAll = useCallback(async () => {
     setDataLoading(true);
     setFetchError(null);
-    const [s, a, r] = await Promise.all([
+    const [s, a, r, t, an] = await Promise.all([
       apiFetch<DashboardSummary>("/api/dashboard/summary"),
       apiFetch<CloudAccount[]>("/api/accounts"),
       apiFetch<Recommendation[]>("/api/recommendations"),
+      apiFetch<CostTrendPoint[]>("/api/dashboard/cost-trends"),
+      apiFetch<Anomaly[]>("/api/dashboard/anomalies"),
     ]);
     if (s) setSummary(s);
     if (a) setAccounts(a);
     if (r) setRecs(r);
-    if (!s && !a && !r) setFetchError("Não foi possível carregar os dados. A API pode estar iniciando (aguarde 30s).");
+    if (t) setTrends(t);
+    if (an) setAnomalies(an);
+    if (!s && !a && !r) setFetchError("Serviço indisponível. A API pode estar iniciando (aguarde 30s).");
     setDataLoading(false);
   }, []);
 
@@ -95,13 +197,21 @@ export default function DashboardPage() {
     if (user) void fetchAll();
   }, [user, authLoading, router, fetchAll]);
 
+  const updatingRef = useRef(new Set<string>());
+
   async function updateRecStatus(id: string, status: Recommendation["status"]) {
-    const updated = await apiFetch<Recommendation>(`/api/recommendations/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ status }),
-    });
-    if (updated) {
-      setRecs((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+    if (updatingRef.current.has(id)) return;
+    updatingRef.current.add(id);
+    try {
+      const updated = await apiFetch<Recommendation>(`/api/recommendations/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      if (updated) {
+        setRecs((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+      }
+    } finally {
+      updatingRef.current.delete(id);
     }
   }
 
@@ -110,356 +220,183 @@ export default function DashboardPage() {
     void fetchAll();
   }
 
-  if (authLoading || dataLoading) {
-    return (
-      <div className="min-h-screen bg-gray-900 p-8">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <div className="h-12 w-48 bg-gray-800 rounded-xl animate-pulse mb-8" />
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((i) => <SkeletonCard key={i} />)}
-          </div>
-          <div className="h-64 bg-gray-800 rounded-xl animate-pulse" />
-        </div>
-      </div>
-    );
-  }
+  // TODO: pull from profile — cast prevents TS from narrowing to literal
+  const userRole = ("owner" as string) as "owner" | "admin" | "member";
+
+  const hasAccounts = accounts.length > 0;
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100">
-      <header className="border-b border-gray-800 bg-gray-900/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+    <div className="min-h-screen text-[#E5E7EB]" style={{ backgroundColor: "#0F1117" }}>
+      {/* ── Header ── */}
+      <header
+        className="border-b border-[#2A2D3E] sticky top-0 z-20"
+        style={{ backgroundColor: "rgba(15,17,23,0.85)", backdropFilter: "blur(12px)" }}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">O</div>
-            <span className="text-lg font-semibold">OptiCloud AI</span>
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+              style={{ background: "linear-gradient(135deg, #0066FF, #0052CC)" }}
+            >
+              O
+            </div>
+            <span className="text-base font-semibold tracking-tight">OptiCloud AI</span>
+            {userRole !== "member" && (
+              <span className="hidden sm:block text-[10px] px-1.5 py-0.5 rounded-full bg-[#0066FF]/15 text-[#0066FF] font-medium">
+                {userRole}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-400 hidden sm:block">{user?.email}</span>
+            <span className="text-xs text-[#6B7280] hidden sm:block">{user?.email}</span>
             <button
               onClick={() => { void signOut().then(() => router.push("/")); }}
-              className="text-sm text-gray-400 hover:text-white transition-colors px-3 py-2 min-h-[44px] focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg"
+              className="text-sm text-[#9CA3AF] hover:text-[#E5E7EB] transition-colors
+                         px-3 py-2 min-h-[44px] rounded-lg focus-visible:ring-2 focus-visible:ring-[#0066FF]"
             >
               Sair
             </button>
           </div>
         </div>
-      </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        {fetchError && (
-          <div className="mb-6 p-4 bg-yellow-900/40 border border-yellow-700 rounded-xl text-yellow-300 text-sm flex items-start gap-3">
-            <span className="text-lg">⚠️</span>
-            <div>
-              <p className="font-medium">Serviço temporariamente indisponível</p>
-              <p className="text-yellow-400">{fetchError}</p>
-              <button onClick={() => void fetchAll()} className="mt-2 text-yellow-200 underline text-xs">Tentar novamente</button>
-            </div>
-          </div>
-        )}
-
-        <div className="flex gap-1 bg-gray-800 p-1 rounded-xl mb-8 w-fit">
-          {(["overview", "accounts", "recs"] as const).map((tab) => (
+        {/* ── Tab Nav ── */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-0 flex gap-1">
+          {NAV_ITEMS.map((item) => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] focus-visible:ring-2 focus-visible:ring-blue-500 ${
-                activeTab === tab ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"
-              }`}
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors min-h-[44px]
+                         focus-visible:ring-2 focus-visible:ring-[#0066FF] focus-visible:ring-inset
+                         ${activeTab === item.id
+                           ? "text-[#0066FF] border-b-2 border-[#0066FF] bg-[#0066FF]/5"
+                           : "text-[#6B7280] hover:text-[#9CA3AF]"}`}
             >
-              {tab === "overview" ? "Visão Geral" : tab === "accounts" ? "Contas" : "Recomendações"}
+              {item.label}
             </button>
           ))}
         </div>
+      </header>
 
-        {activeTab === "overview" && (
-          <OverviewTab summary={summary} onNavigate={setActiveTab} />
-        )}
-        {activeTab === "accounts" && (
-          <AccountsTab accounts={accounts} onRefresh={fetchAll} />
-        )}
-        {activeTab === "recs" && (
-          <RecsTab recs={recs} onUpdateStatus={updateRecStatus} onGenerate={generateRecs} />
-        )}
-      </main>
-    </div>
-  );
-}
-
-// ─── Overview Tab ─────────────────────────────────────────────────────────────
-
-function OverviewTab({
-  summary,
-  onNavigate,
-}: {
-  summary: DashboardSummary | null;
-  onNavigate: (tab: "accounts") => void;
-}) {
-  if (!summary || summary.total_accounts === 0) {
-    return (
-      <div className="bg-gray-800 border border-gray-700 rounded-xl p-12 text-center">
-        <p className="text-4xl mb-4">☁️</p>
-        <h2 className="text-lg font-semibold text-white mb-2">Nenhuma conta conectada</h2>
-        <p className="text-gray-400 mb-6">Adicione suas contas cloud para começar a otimizar custos.</p>
-        <button
-          onClick={() => onNavigate("accounts")}
-          className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors min-h-[44px]"
-        >
-          Conectar conta
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Contas Cloud" value={String(summary.total_accounts)} />
-        <StatCard label="Custo Mensal" value={`$${summary.total_monthly_cost_usd.toFixed(0)}`} accent="text-blue-400" />
-        <StatCard
-          label="Recomendações Pendentes"
-          value={String(summary.pending_recommendations)}
-          accent={summary.pending_recommendations > 0 ? "text-yellow-400" : "text-green-400"}
-        />
-        <StatCard label="Economia Potencial" value={`$${summary.potential_savings_usd.toFixed(0)}`} sub="por mês" accent="text-green-400" />
-      </div>
-
-      {summary.pending_recommendations > 0 && (
-        <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
-          <h2 className="font-semibold text-white mb-4">Economia potencial por categoria</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {(Object.entries(summary.savings_by_category) as [string, number][]).map(([cat, val]) => (
-              <div key={cat} className="text-center p-4 bg-gray-700/50 rounded-lg">
-                <p className="text-2xl font-bold text-green-400">${val.toFixed(0)}</p>
-                <p className="text-xs text-gray-400 capitalize mt-1">{cat}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Accounts Tab ─────────────────────────────────────────────────────────────
-
-function AccountsTab({ accounts, onRefresh }: { accounts: CloudAccount[]; onRefresh: () => void }) {
-  const [provider, setProvider] = useState<"aws" | "gcp" | "azure">("aws");
-  const [accountId, setAccountId] = useState("");
-  const [accountName, setAccountName] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const deletingRef = useRef<Set<string>>(new Set());
-  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
-
-  async function handleAdd(e: React.FormEvent) {
-    e.preventDefault();
-    if (submitting) return;
-    setSubmitting(true);
-    setFormError(null);
-
-    const result = await apiFetch<CloudAccount>("/api/accounts", {
-      method: "POST",
-      body: JSON.stringify({ provider, account_id: accountId.trim(), account_name: accountName.trim() }),
-    });
-
-    if (result) {
-      setAccountId("");
-      setAccountName("");
-      onRefresh();
-    } else {
-      setFormError("Erro ao adicionar conta. Verifique se o ID não está duplicado.");
-    }
-    setSubmitting(false);
-  }
-
-  async function handleDelete(id: string) {
-    if (deletingRef.current.has(id)) return;
-    if (!confirm("Remover esta conta cloud? Esta ação não pode ser desfeita.")) return;
-
-    deletingRef.current.add(id);
-    setDeletingIds(new Set(deletingRef.current));
-
-    await apiFetch(`/api/accounts/${id}`, { method: "DELETE" });
-    deletingRef.current.delete(id);
-    setDeletingIds(new Set(deletingRef.current));
-    onRefresh();
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
-        <h2 className="font-semibold text-white mb-4">Conectar conta cloud</h2>
-        {formError && <p className="text-red-400 text-sm mb-4">{formError}</p>}
-        <form onSubmit={(e) => { void handleAdd(e); }} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <select
-            value={provider}
-            onChange={(e) => setProvider(e.target.value as "aws" | "gcp" | "azure")}
-            className="px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white min-h-[44px] focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          >
-            <option value="aws">AWS</option>
-            <option value="gcp">GCP</option>
-            <option value="azure">Azure</option>
-          </select>
-          <input
-            required value={accountId} onChange={(e) => setAccountId(e.target.value)}
-            placeholder="ID da conta (ex: 123456789012)"
-            maxLength={128}
-            className="px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 min-h-[44px] focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          />
-          <input
-            required value={accountName} onChange={(e) => setAccountName(e.target.value)}
-            placeholder="Nome descritivo (ex: Produção)"
-            maxLength={256}
-            className="px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 min-h-[44px] focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          />
-          <button
-            type="submit" disabled={submitting}
-            className="md:col-span-3 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors min-h-[44px]"
-          >
-            {submitting ? "Adicionando..." : "Adicionar conta"}
-          </button>
-        </form>
-      </div>
-
-      {accounts.length === 0 ? (
-        <div className="bg-gray-800 border border-gray-700 rounded-xl p-12 text-center">
-          <p className="text-gray-400">Nenhuma conta conectada ainda.</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {accounts.map((acc) => (
-            <div key={acc.id} className="bg-gray-800 border border-gray-700 rounded-xl p-4 flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span className="text-xs font-mono bg-gray-700 px-2 py-0.5 rounded text-gray-300 flex-shrink-0">{PROVIDER_LABELS[acc.provider]}</span>
-                  <span className="font-medium text-white truncate">{acc.account_name}</span>
-                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${acc.status === "active" ? "bg-green-400" : acc.status === "error" ? "bg-red-400" : "bg-yellow-400"}`} />
-                </div>
-                <p className="text-sm text-gray-400 truncate">
-                  ID: {acc.account_id}{acc.monthly_cost_usd != null ? ` · $${acc.monthly_cost_usd}/mês` : ""}
-                </p>
-              </div>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        {/* ── Error Banner ── */}
+        {fetchError && (
+          <div className="mb-6 p-4 rounded-xl border border-[#FFB800]/30 bg-[#FFB800]/10 text-[#FFB800] text-sm flex items-start gap-3">
+            <span className="shrink-0">⚠</span>
+            <div>
+              <p className="font-medium">Serviço temporariamente indisponível</p>
+              <p className="text-[#FFB800]/80 text-xs mt-0.5">{fetchError}</p>
               <button
-                onClick={() => { void handleDelete(acc.id); }}
-                disabled={deletingIds.has(acc.id)}
-                className="text-gray-400 hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center flex-shrink-0"
-                aria-label="Remover conta"
+                onClick={() => void fetchAll()}
+                className="mt-2 text-xs underline focus-visible:ring-1 focus-visible:ring-[#FFB800] rounded"
               >
-                {deletingIds.has(acc.id) ? "..." : "✕"}
+                Tentar novamente
               </button>
             </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+          </div>
+        )}
 
-// ─── Recs Tab ─────────────────────────────────────────────────────────────────
+        {/* ── Overview Tab ── */}
+        {activeTab === "overview" && (
+          <>
+            {authLoading || dataLoading ? (
+              <DashboardSkeleton />
+            ) : !hasAccounts ? (
+              <EmptyState onNavigate={setActiveTab} />
+            ) : (
+              <div className="space-y-8">
 
-function RecsTab({
-  recs,
-  onUpdateStatus,
-  onGenerate,
-}: {
-  recs: Recommendation[];
-  onUpdateStatus: (id: string, status: Recommendation["status"]) => Promise<void>;
-  onGenerate: () => Promise<void>;
-}) {
-  const [generating, setGenerating] = useState(false);
-  const updatingRef = useRef<Set<string>>(new Set());
-  const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
-  const pending = recs.filter((r) => r.status === "pending");
-
-  async function handleGenerate() {
-    if (generating) return;
-    setGenerating(true);
-    await onGenerate();
-    setGenerating(false);
-  }
-
-  async function handleUpdateStatus(id: string, status: Recommendation["status"]) {
-    if (updatingRef.current.has(id)) return;
-    updatingRef.current.add(id);
-    setUpdatingIds(new Set(updatingRef.current));
-    await onUpdateStatus(id, status);
-    updatingRef.current.delete(id);
-    setUpdatingIds(new Set(updatingRef.current));
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-white">
-          {pending.length} recomendação{pending.length !== 1 ? "s" : ""} pendente{pending.length !== 1 ? "s" : ""}
-        </h2>
-        <button
-          onClick={() => { void handleGenerate(); }}
-          disabled={generating}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors min-h-[44px]"
-        >
-          {generating ? "Analisando..." : "Gerar novas"}
-        </button>
-      </div>
-
-      {recs.length === 0 ? (
-        <div className="bg-gray-800 border border-gray-700 rounded-xl p-12 text-center">
-          <p className="text-4xl mb-3">✅</p>
-          <p className="text-white font-medium mb-2">Nenhuma recomendação ainda</p>
-          <p className="text-gray-400 text-sm">Conecte uma conta cloud e clique em &quot;Gerar novas&quot; para iniciar a análise.</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {recs.map((rec) => (
-            <div key={rec.id} className={`border rounded-xl p-5 ${PRIORITY_COLORS[rec.priority] ?? "border-gray-700 bg-gray-800"}`}>
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-2">
-                    <span className={`text-xs font-semibold uppercase px-2 py-0.5 rounded border ${PRIORITY_COLORS[rec.priority]}`}>
-                      {rec.priority}
-                    </span>
-                    <span className="text-xs text-gray-400 capitalize">{rec.category}</span>
-                    {rec.estimated_savings_usd != null && (
-                      <span className="text-xs text-green-400 font-medium">
-                        Economia: ${rec.estimated_savings_usd.toFixed(0)}/mês
-                      </span>
-                    )}
-                    <span className="text-xs text-gray-500">
-                      Confiança: {Math.round(rec.ai_confidence * 100)}%
-                    </span>
+                {/* ── TIER 1: KPIs ── */}
+                <section aria-label="KPIs críticos">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <KpiCard
+                      label="Custo Total Mensal"
+                      value={`$${(summary?.total_monthly_cost_usd ?? 0).toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
+                      sub={`${summary?.total_accounts ?? 0} conta${(summary?.total_accounts ?? 0) !== 1 ? "s" : ""}`}
+                      icon="💳"
+                      accent="default"
+                    />
+                    <KpiCard
+                      label="Economia Potencial"
+                      value={`$${(summary?.potential_savings_usd ?? 0).toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
+                      sub="em recomendações pendentes"
+                      icon="💡"
+                      accent="success"
+                    />
+                    <KpiCard
+                      label="Alertas Críticos"
+                      value={String(summary?.critical_alerts ?? 0)}
+                      sub="anomalias ativas"
+                      icon="🚨"
+                      accent={summary?.critical_alerts ? "danger" : "default"}
+                    />
+                    <KpiCard
+                      label="Economia Implementada"
+                      value={`$${(summary?.implemented_savings_usd ?? 0).toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
+                      sub="acumulado no mês"
+                      icon="✅"
+                      accent="success"
+                    />
                   </div>
-                  <h3 className="font-medium text-white mb-1 break-words">{rec.title}</h3>
-                  <p className="text-sm text-gray-300 break-words">{rec.description}</p>
-                </div>
-                {rec.status === "pending" && (
-                  <div className="flex gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => { void handleUpdateStatus(rec.id, "applied"); }}
-                      disabled={updatingIds.has(rec.id)}
-                      className="px-3 py-1.5 bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs rounded-lg transition-colors min-h-[44px]"
-                    >
-                      {updatingIds.has(rec.id) ? "..." : "Aplicar"}
-                    </button>
-                    <button
-                      onClick={() => { void handleUpdateStatus(rec.id, "dismissed"); }}
-                      disabled={updatingIds.has(rec.id)}
-                      className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs rounded-lg transition-colors min-h-[44px]"
-                    >
-                      {updatingIds.has(rec.id) ? "..." : "Ignorar"}
-                    </button>
+                </section>
+
+                {/* ── TIER 2: Gráficos ── */}
+                <section aria-label="Análise de custos" className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-2">
+                    <CostTrendChart data={trends} loading={false} />
                   </div>
-                )}
-                {rec.status !== "pending" && (
-                  <span className={`text-xs px-2 py-1 rounded border flex-shrink-0 ${
-                    rec.status === "applied" ? "text-green-400 border-green-800 bg-green-900/30" :
-                    rec.status === "dismissed" ? "text-gray-400 border-gray-700 bg-gray-800" :
-                    "text-blue-400 border-blue-800 bg-blue-900/30"
-                  } capitalize`}>{rec.status}</span>
-                )}
+                  <ProviderBreakdown
+                    data={summary?.cost_by_provider ?? { aws: 0, gcp: 0, azure: 0 }}
+                    loading={false}
+                  />
+                </section>
+
+                {/* ── TIER 3: Anomalias + Recomendações ── */}
+                <section aria-label="Anomalias e recomendações" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <AnomalyList anomalies={anomalies} loading={false} />
+                  <RecommendationsCritical
+                    recs={recs}
+                    loading={false}
+                    onUpdateStatus={updateRecStatus}
+                  />
+                </section>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            )}
+          </>
+        )}
+
+        {/* ── Accounts Tab ── */}
+        {activeTab === "accounts" && (
+          (authLoading || dataLoading)
+            ? <div className="space-y-3"><SkeletonList rows={3} /></div>
+            : <AccountsTab accounts={accounts} onRefresh={fetchAll} />
+        )}
+
+        {/* ── Recs Tab ── */}
+        {activeTab === "recs" && (
+          (authLoading || dataLoading)
+            ? <SkeletonList rows={6} />
+            : (
+              <div className="space-y-4">
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => void generateRecs()}
+                    className="px-4 py-2.5 rounded-xl bg-[#0066FF] text-white text-sm font-medium
+                               hover:bg-[#0052CC] focus-visible:ring-2 focus-visible:ring-[#0066FF]
+                               focus-visible:ring-offset-2 focus-visible:ring-offset-[#0F1117]
+                               transition-colors min-h-[44px]"
+                  >
+                    Gerar Recomendações
+                  </button>
+                </div>
+                <RecommendationsCritical
+                  recs={recs}
+                  loading={false}
+                  onUpdateStatus={updateRecStatus}
+                />
+              </div>
+            )
+        )}
+      </main>
     </div>
   );
 }
