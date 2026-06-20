@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { DollarSign, Zap, Cloud, TrendingDown, Bell, RefreshCw } from "lucide-react"
 import { Sidebar } from "@/components/dashboard/Sidebar"
 import { KpiCard } from "@/components/dashboard/KpiCard"
@@ -9,102 +10,98 @@ import { ProviderBreakdown } from "@/components/dashboard/ProviderBreakdown"
 import { AnomalyList } from "@/components/dashboard/AnomalyList"
 import { RecommendationsCritical } from "@/components/dashboard/RecommendationsCritical"
 import { AddAccountModal } from "@/components/dashboard/AddAccountModal"
+import { Skeleton } from "@/components/ui/Skeleton"
+import { useAuth } from "@/hooks/useAuth"
+import { apiFetch } from "@/lib/api"
+import type { DashboardSummary, CostTrendPoint, Anomaly as ApiAnomaly, Recommendation } from "@repo/types"
+import type { Anomaly as UIAnomaly } from "@/components/dashboard/AnomalyList"
 
-/* ─── Mock data ─────────────────────────────────────── */
-const spark = (seed: number[]) => seed.map((v) => ({ v }))
+/* ─── Helpers ─────────────────────────────────────── */
+function fmtUSD(n: number): string {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`
+  return `$${n.toFixed(0)}`
+}
 
-const KPI_DATA = [
-  {
-    label: "Custo Total do Mês",
-    value: "R$ 4.218.340",
-    delta: 12,
-    icon: DollarSign,
-    colorClass: "text-chart-1",
-    sparkline: spark([320, 380, 350, 410, 390, 430, 470, 490, 510, 480]),
-  },
-  {
-    label: "Anomalias Ativas",
-    value: "23",
-    delta: 8,
-    icon: Zap,
-    colorClass: "text-warning",
-    sparkline: spark([5, 8, 6, 12, 9, 15, 18, 21, 20, 23]),
-  },
-  {
-    label: "Contas Conectadas",
-    value: "12",
-    delta: 0,
-    icon: Cloud,
-    colorClass: "text-chart-2",
-    sparkline: spark([10, 10, 10, 10, 11, 11, 12, 12, 12, 12]),
-  },
-  {
-    label: "Economia Identificada",
-    value: "R$ 381.200",
-    delta: -5,
-    icon: TrendingDown,
-    colorClass: "text-success",
-    sparkline: spark([400, 420, 410, 390, 405, 395, 380, 390, 385, 381]),
-  },
-]
+function relativeTime(iso: string): string {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000
+  if (diff < 60) return "agora mesmo"
+  if (diff < 3600) return `há ${Math.floor(diff / 60)} min`
+  if (diff < 86400) return `há ${Math.floor(diff / 3600)} h`
+  return `há ${Math.floor(diff / 86400)} d`
+}
 
-const TREND_DATA = [
-  { month: "Jan", aws: 120000, gcp: 45000, azure: 30000 },
-  { month: "Fev", aws: 138000, gcp: 48000, azure: 35000 },
-  { month: "Mar", aws: 125000, gcp: 52000, azure: 28000 },
-  { month: "Abr", aws: 160000, gcp: 55000, azure: 42000 },
-  { month: "Mai", aws: 175000, gcp: 60000, azure: 48000 },
-  { month: "Jun", aws: 190000, gcp: 65000, azure: 52000 },
-]
+function mapAnomaly(a: ApiAnomaly): UIAnomaly {
+  const severityMap: Record<string, UIAnomaly["severity"]> = {
+    critical: "critical",
+    warning: "high",
+    info: "medium",
+  }
+  return {
+    id: a.id,
+    title: a.title,
+    provider: a.provider.toUpperCase(),
+    service: a.resource_type,
+    delta: Math.round(a.deviation_pct),
+    severity: severityMap[a.severity] ?? "medium",
+    time: relativeTime(a.detected_at),
+  }
+}
 
-const PROVIDERS = [
-  { name: "Amazon Web Services",   amount: 2_340_000, pct: 55, color: "text-chart-1", bar: "bg-chart-1" },
-  { name: "Google Cloud Platform", amount: 1_100_000, pct: 26, color: "text-chart-2", bar: "bg-chart-2" },
-  { name: "Microsoft Azure",       amount:   778_340, pct: 19, color: "text-chart-3", bar: "bg-chart-3" },
-]
+function mapRecommendation(r: Recommendation) {
+  return {
+    id: r.id,
+    title: r.title,
+    description: r.description,
+    saving: r.estimated_savings_usd ? `${fmtUSD(r.estimated_savings_usd)}/mês` : "—",
+    provider: (r.metadata?.provider as string | undefined) ?? r.category,
+    priority: r.priority as "critical" | "high",
+  }
+}
 
-const ANOMALIES = [
-  { id: "a1", title: "Pico de egress na região us-east-1", provider: "AWS",   service: "EC2",         delta: 340, severity: "critical" as const, time: "há 12 min"  },
-  { id: "a2", title: "BigQuery jobs acima do budget",      provider: "GCP",   service: "BigQuery",    delta: 87,  severity: "high"     as const, time: "há 1 h"     },
-  { id: "a3", title: "Azure Functions com CPU elevada",    provider: "Azure", service: "Functions",   delta: 52,  severity: "medium"   as const, time: "há 3 h"     },
-  { id: "a4", title: "S3 requests inesperados",            provider: "AWS",   service: "S3",          delta: 210, severity: "high"     as const, time: "há 4 h"     },
-]
-
-const RECOMMENDATIONS = [
-  {
-    id: "r1",
-    title: "Migrar instâncias para Graviton3",
-    description: "56 instâncias EC2 x86 elegíveis para migração para ARM. Redução de custo de até 30% com performance superior.",
-    saving: "R$ 85.000/mês",
-    provider: "AWS",
-    priority: "critical" as const,
-  },
-  {
-    id: "r2",
-    title: "Redimensionar VMs subutilizadas",
-    description: "12 VMs no Azure com uso médio de CPU < 5%. Downgrade de SKU pode ser feito sem impacto em produção.",
-    saving: "R$ 22.400/mês",
-    provider: "Azure",
-    priority: "high" as const,
-  },
-  {
-    id: "r3",
-    title: "Reservar capacidade GKE",
-    description: "Cluster GKE com carga previsível nos últimos 90 dias. Comprometimento de 1 ano pode gerar economia significativa.",
-    saving: "R$ 41.600/mês",
-    provider: "GCP",
-    priority: "high" as const,
-  },
-]
-
-/* ─── Toast ─────────────────────────────────────────── */
 interface ToastMsg { id: number; text: string }
 
-/* ─── Page ───────────────────────────────────────────── */
 export default function DashboardPage() {
+  const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
+
+  const [summary, setSummary] = useState<DashboardSummary | null>(null)
+  const [trends, setTrends] = useState<CostTrendPoint[]>([])
+  const [anomalies, setAnomalies] = useState<UIAnomaly[]>([])
+  const [recommendations, setRecommendations] = useState<ReturnType<typeof mapRecommendation>[]>([])
+  const [dataLoading, setDataLoading] = useState(true)
+
   const [modalOpen, setModalOpen] = useState(false)
   const [toasts, setToasts] = useState<ToastMsg[]>([])
   const [refreshing, setRefreshing] = useState(false)
+
+  useEffect(() => {
+    if (!authLoading && !user) router.push("/")
+  }, [authLoading, user, router])
+
+  const loadData = useCallback(async () => {
+    setDataLoading(true)
+    const [sum, trd, ano, recs] = await Promise.all([
+      apiFetch<DashboardSummary>("/api/dashboard/summary"),
+      apiFetch<CostTrendPoint[]>("/api/dashboard/cost-trends"),
+      apiFetch<ApiAnomaly[]>("/api/dashboard/anomalies"),
+      apiFetch<Recommendation[]>("/api/recommendations/"),
+    ])
+    setSummary(sum)
+    setTrends(trd ?? [])
+    setAnomalies((ano ?? []).slice(0, 4).map(mapAnomaly))
+    setRecommendations(
+      (recs ?? [])
+        .filter((r) => r.priority === "critical" || r.priority === "high")
+        .slice(0, 3)
+        .map(mapRecommendation)
+    )
+    setDataLoading(false)
+  }, [])
+
+  useEffect(() => {
+    if (user) loadData()
+  }, [user, loadData])
 
   function addToast(text: string) {
     const id = Date.now()
@@ -114,24 +111,67 @@ export default function DashboardPage() {
 
   async function handleRefresh() {
     setRefreshing(true)
-    await new Promise((r) => setTimeout(r, 1000))
+    await loadData()
     setRefreshing(false)
     addToast("Dados atualizados com sucesso.")
   }
+
+  const providerItems = summary ? (() => {
+    const { aws = 0, gcp = 0, azure = 0 } = summary.cost_by_provider
+    const total = aws + gcp + azure || 1
+    return [
+      { name: "Amazon Web Services",   amount: aws,   pct: Math.round(aws / total * 100),   color: "text-chart-1", bar: "bg-chart-1" },
+      { name: "Google Cloud Platform", amount: gcp,   pct: Math.round(gcp / total * 100),   color: "text-chart-2", bar: "bg-chart-2" },
+      { name: "Microsoft Azure",       amount: azure, pct: Math.round(azure / total * 100), color: "text-chart-3", bar: "bg-chart-3" },
+    ].filter((p) => p.amount > 0)
+  })() : []
+
+  const kpis = summary ? [
+    {
+      label: "Custo Total do Mês",
+      value: fmtUSD(summary.total_monthly_cost_usd),
+      delta: 0,
+      icon: DollarSign,
+      colorClass: "text-chart-1",
+      sparkline: trends.slice(-10).map((t) => ({ v: t.total })),
+    },
+    {
+      label: "Alertas Críticos",
+      value: String(summary.critical_alerts),
+      delta: 0,
+      icon: Zap,
+      colorClass: "text-warning",
+      sparkline: [] as { v: number }[],
+    },
+    {
+      label: "Contas Conectadas",
+      value: String(summary.total_accounts),
+      delta: 0,
+      icon: Cloud,
+      colorClass: "text-chart-2",
+      sparkline: [] as { v: number }[],
+    },
+    {
+      label: "Economia Identificada",
+      value: fmtUSD(summary.potential_savings_usd),
+      delta: 0,
+      icon: TrendingDown,
+      colorClass: "text-success",
+      sparkline: [] as { v: number }[],
+    },
+  ] : []
+
+  if (authLoading) return null
 
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar onAddAccount={() => setModalOpen(true)} />
 
-      {/* Main content */}
       <div className="flex-1 ml-60 flex flex-col min-h-screen">
-        {/* Top bar */}
         <header className="sticky top-0 z-20 flex items-center justify-between h-14 px-6 bg-background/80 backdrop-blur-md border-b border-border shrink-0">
           <div>
             <h1 className="text-sm font-semibold text-foreground">Visão Geral</h1>
-            <p className="text-[11px] text-muted-foreground">
-              Dashboard / Visão Geral
-            </p>
+            <p className="text-[11px] text-muted-foreground">Dashboard / Visão Geral</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -139,74 +179,81 @@ export default function DashboardPage() {
               aria-label="Atualizar dados"
               className="size-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
             >
-              <RefreshCw
-                className={`size-4 ${refreshing ? "animate-spin" : ""}`}
-              />
+              <RefreshCw className={`size-4 ${refreshing ? "animate-spin" : ""}`} />
             </button>
             <button
               aria-label="Notificações"
               className="relative size-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
             >
               <Bell className="size-4" />
-              <span
-                aria-hidden="true"
-                className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-danger"
-              />
+              {anomalies.length > 0 && (
+                <span aria-hidden="true" className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-danger" />
+              )}
             </button>
             <div className="h-5 w-px bg-border mx-1" />
             <div className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-accent transition-colors duration-150 cursor-pointer">
               <div className="size-6 rounded-full bg-primary/20 flex items-center justify-center">
-                <span className="text-[10px] font-semibold text-primary">JD</span>
+                <span className="text-[10px] font-semibold text-primary">
+                  {user?.email?.slice(0, 2).toUpperCase() ?? "??"}
+                </span>
               </div>
-              <span className="text-xs font-medium text-foreground">João Dinis</span>
+              <span className="text-xs font-medium text-foreground truncate max-w-32">{user?.email ?? ""}</span>
             </div>
           </div>
         </header>
 
-        {/* Content */}
         <main className="flex-1 px-6 py-6 max-w-[1280px] w-full mx-auto space-y-6">
-          {/* KPI Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            {KPI_DATA.map((kpi, i) => (
-              <KpiCard key={kpi.label} {...kpi} index={i} />
-            ))}
-          </div>
-
-          {/* Trend + Provider */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2">
-              <CostTrendChart data={TREND_DATA} />
-            </div>
-            <ProviderBreakdown items={PROVIDERS} total="R$ 4,21 M" />
-          </div>
-
-          {/* Anomalies + Recommendations */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <AnomalyList
-              anomalies={ANOMALIES}
-              onViewAll={() => addToast("Navegando para Anomalias...")}
-            />
-            <RecommendationsCritical
-              recommendations={RECOMMENDATIONS}
-              onViewAll={() => addToast("Navegando para Recomendações...")}
-            />
-          </div>
+          {dataLoading ? (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[108px] rounded-xl" />)}
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <Skeleton className="h-[260px] lg:col-span-2 rounded-xl" />
+                <Skeleton className="h-[260px] rounded-xl" />
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <Skeleton className="h-[300px] rounded-xl" />
+                <Skeleton className="h-[300px] rounded-xl" />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                {kpis.map((kpi, i) => <KpiCard key={kpi.label} {...kpi} index={i} />)}
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="lg:col-span-2">
+                  <CostTrendChart data={trends} />
+                </div>
+                <ProviderBreakdown
+                  items={providerItems}
+                  total={fmtUSD(summary?.total_monthly_cost_usd ?? 0)}
+                />
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <AnomalyList
+                  anomalies={anomalies}
+                  onViewAll={() => router.push("/dashboard/anomalies")}
+                />
+                <RecommendationsCritical
+                  recommendations={recommendations}
+                  onViewAll={() => router.push("/dashboard/recommendations")}
+                />
+              </div>
+            </>
+          )}
         </main>
       </div>
 
-      {/* Modal */}
       <AddAccountModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        onAdd={(provider, name) =>
-          addToast(`Conta "${name}" (${provider.toUpperCase()}) conectada!`)
-        }
+        onAdd={(_provider, name) => addToast(`Conta "${name}" conectada!`)}
       />
 
-      {/* Toasts */}
       <div
         aria-live="polite"
-        aria-label="Notificações"
         className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"
       >
         {toasts.map((t) => (

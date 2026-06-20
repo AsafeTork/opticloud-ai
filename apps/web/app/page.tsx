@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff, Cloud, Zap, Shield, BarChart3 } from "lucide-react"
 import { Logo } from "@/components/logo"
+import { createClient } from "@/lib/supabase"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -21,9 +22,13 @@ export default function LoginPage() {
       return
     }
     setLoading(true)
-    // Simula autenticação
-    await new Promise((r) => setTimeout(r, 900))
+    const sb = createClient()
+    const { error: authError } = await sb.auth.signInWithPassword({ email, password })
     setLoading(false)
+    if (authError) {
+      setError(authError.message === "Invalid login credentials" ? "E-mail ou senha inválidos." : authError.message)
+      return
+    }
     router.push("/dashboard")
   }
 
