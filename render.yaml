@@ -4,35 +4,29 @@ services:
     env: node
     plan: free
     region: oregon
-    buildCommand: npm install && npm run build --filter=api
+    buildCommand: npm install && npx turbo build --filter=api
     startCommand: node apps/api/dist/index.js
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
+      - key: API_PORT
+        value: "10000"
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
-      - key: API_PORT
-        value: "10000"
       - key: API_CORS_ORIGIN
         sync: false
 
-  - type: web
+  - type: static_site
     name: opticloud-web
-    env: node
-    plan: free
-    region: oregon
-    buildCommand: npm install && npm run build --filter=web
-    startCommand: node apps/web/.next/standalone/server.js
+    buildCommand: npm install && npx turbo build --filter=web
+    publishPath: apps/web/out
     envVars:
-      - key: NODE_ENV
-        value: production
       - key: NEXT_PUBLIC_SUPABASE_URL
         value: https://jzqcblfgmngkruxdvxdd.supabase.co
       - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
         sync: false
       - key: NEXT_PUBLIC_API_URL
         sync: false
-      - key: PORT
-        value: "10000"

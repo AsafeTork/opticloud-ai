@@ -1,26 +1,28 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '../lib/supabase.js'
 
 export async function requireAuth(req: FastifyRequest, reply: FastifyReply): Promise<void> {
-  const token = req.headers.authorization?.replace('Bearer ', '')
+  const authHeader = req.headers.authorization
 
-  if (!token) {
+  if (!authHeader?.startsWith('Bearer ')) {
     await reply.code(401).send({ data: null, error: { code: 'UNAUTHORIZED', message: 'Missing auth token' } })
     return
   }
 
-  const url = process.env['SUPABASE_URL']!
-  const key = process.env['SUPABASE_SERVICE_ROLE_KEY']!
-  const client = createClient(url, key, { auth: { persistSession: false } })
+  const token = authHeader.slice(7)
 
-  const { data, error } = await client.auth.getUser(token)
+  try {
+    const { data, error } = await supabase.auth.getUser(token)
 
-  if (error || !data.user) {
-    await reply.code(401).send({ data: null, error: { code: 'UNAUTHORIZED', message: 'Invalid token' } })
-    return
+    if (error || !data.user) {
+      await reply.code(401).send({ data: null, error: { code: 'UNAUTHORIZED', message: 'Invalid token' } })
+      return
+    }
+
+    req.user = data.user
+  } catch {
+    await reply.code(500).send({ data: null, error: { code: 'AUTH_ERROR', message: 'Auth service unavailable' } })
   }
-
-  req.user = data.user
 }
 
 declare module 'fastify' {

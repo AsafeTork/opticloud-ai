@@ -23,11 +23,13 @@ async function bootstrap(): Promise<void> {
 
   app.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }))
 
-  app.setErrorHandler((error, _req, reply) => {
-    app.log.error(error)
-    void reply.code(error.statusCode ?? 500).send({
+  app.setErrorHandler((err, _req, reply) => {
+    app.log.error(err)
+    const statusCode = err instanceof Error && 'statusCode' in err ? (err as { statusCode: number }).statusCode : 500
+    const message = err instanceof Error ? err.message : 'Internal server error'
+    void reply.code(statusCode).send({
       data: null,
-      error: { code: 'INTERNAL_ERROR', message: error.message },
+      error: { code: 'INTERNAL_ERROR', message },
     })
   })
 

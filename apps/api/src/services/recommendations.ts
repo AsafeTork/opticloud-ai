@@ -2,9 +2,18 @@ import type {
   Recommendation,
   RecommendationCategory,
   RecommendationPriority,
-  CloudAccount,
 } from '@repo/types'
 import { supabase } from '../lib/supabase.js'
+
+interface AccountRow {
+  id: string
+  account_id: string
+  account_name: string
+  provider: string
+  status: string
+  monthly_cost_usd: number | null
+  last_sync_at: string | null
+}
 
 interface RuleResult {
   title: string
@@ -17,17 +26,18 @@ interface RuleResult {
   metadata: Record<string, unknown>
 }
 
-function analyzeAccount(account: CloudAccount): RuleResult[] {
+function analyzeAccount(account: AccountRow): RuleResult[] {
   const results: RuleResult[] = []
   const cost = account.monthly_cost_usd ?? 0
+  const provider = account.provider.toUpperCase()
 
   if (cost > 1000) {
     results.push({
-      title: 'High monthly spend detected — review resource allocation',
-      description: `Your ${account.provider.toUpperCase()} account "${account.account_name}" has a monthly cost of $${cost.toFixed(2)}. Consider rightsizing instances and reviewing unused resources.`,
+      title: `High monthly spend on ${provider} — review resource allocation`,
+      description: `Account "${account.account_name}" has a monthly cost of $${cost.toFixed(2)}. Consider rightsizing instances and removing unused resources. Estimated 20% savings with right-sizing.`,
       category: 'cost',
       priority: cost > 5000 ? 'critical' : 'high',
-      estimated_savings_usd: cost * 0.2,
+      estimated_savings_usd: Math.round(cost * 0.2 * 100) / 100,
       ai_confidence: 0.85,
       resource_ids: [account.account_id],
       metadata: { trigger: 'high_cost', monthly_cost_usd: cost },
@@ -36,8 +46,8 @@ function analyzeAccount(account: CloudAccount): RuleResult[] {
 
   if (!account.last_sync_at) {
     results.push({
-      title: 'Cloud account not synced — enable monitoring',
-      description: `Account "${account.account_name}" has never been synced. Enable automatic syncing to get cost optimization recommendations.`,
+      title: 'Cloud account not synced — enable cost monitoring',
+      description: `Account "${account.account_name}" has never been synced. Enable automatic syncing to receive cost optimization recommendations and detect anomalies.`,
       category: 'reliability',
       priority: 'medium',
       estimated_savings_usd: null,
@@ -49,8 +59,8 @@ function analyzeAccount(account: CloudAccount): RuleResult[] {
 
   if (account.status === 'error') {
     results.push({
-      title: 'Cloud account in error state',
-      description: `Account "${account.account_name}" is in an error state. Check credentials and permissions to restore monitoring.`,
+      title: 'Cloud account in error state — check permissions',
+      description: `Account "${account.account_name}" is in an error state. Verify API credentials and IAM permissions to restore cost monitoring and optimization.`,
       category: 'reliability',
       priority: 'critical',
       estimated_savings_usd: null,
@@ -64,41 +74,65 @@ function analyzeAccount(account: CloudAccount): RuleResult[] {
 }
 
 export async function generateRecommendations(orgId: string): Promise<{ count: number; error: string | null }> {
-  const { data: accounts, error: accErr } = await supabase
-    .from('cloud_accounts')
-    .select('*')
-    .eq('organization_id', orgId)
+  try {
+    const { data: accounts, error: accErr } = await supabase
+      .from('cloud_accounts')
+      .select('id, account_id, account_name, provider, status, monthly_cost_usd, last_sync_at')
+      .eq('organization_id', orgId)
 
-  if (accErr) return { count: 0, error: accErr.message }
-  if (!accounts?.length) return { count: 0, error: null }
+    if (accErr) return { count: 0, error: accErr.message }
+    if (!accounts?.length) return { count: 0, error: null }
 
-  const toInsert: Omit<Recommendation, 'id' | 'created_at' | 'updated_at'>[] = []
+    // Fetch existing pending recommendations to avoid duplicates
+    const { data: existingRecs } = await supabase
+      .from('recommendations')
+      .select('cloud_account_id, metadata')
+      .eq('organization_id', orgId)
+      .eq('status', 'pending')
 
-  for (const account of accounts as CloudAccount[]) {
-    const rules = analyzeAccount(account)
-    for (const r of rules) {
-      toInsert.push({
-        organization_id: orgId,
-        cloud_account_id: account.id,
-        status: 'pending',
-        ...r,
+    const existingTriggers = new Set(
+      (existingRecs ?? []).map((r) => {
+        const meta = r.metadata as Record<string, unknown>
+        return `${String(r.cloud_account_id)}:${String(meta['trigger'] ?? '')}`
       })
+    )
+
+    const toInsert: Omit<Recommendation, 'id' | 'created_at' | 'updated_at'>[] = []
+
+    for (const account of accounts as AccountRow[]) {
+      const rules = analyzeAccount(account)
+      for (const r of rules) {
+        const dedupeKey = `${account.id}:${String(r.metadata['trigger'])}`
+        if (existingTriggers.has(dedupeKey)) continue
+
+        toInsert.push({
+          organization_id: orgId,
+          cloud_account_id: account.id,
+          status: 'pending',
+          ...r,
+        })
+      }
     }
+
+    if (!toInsert.length) return { count: 0, error: null }
+
+    const { error: insErr } = await supabase.from('recommendations').insert(toInsert)
+    return { count: toInsert.length, error: insErr?.message ?? null }
+  } catch {
+    return { count: 0, error: 'Failed to connect to database' }
   }
-
-  if (!toInsert.length) return { count: 0, error: null }
-
-  const { error: insErr } = await supabase.from('recommendations').insert(toInsert)
-
-  return { count: toInsert.length, error: insErr?.message ?? null }
 }
 
 export async function getOrgRecommendations(orgId: string): Promise<{ data: Recommendation[]; error: string | null }> {
-  const { data, error } = await supabase
-    .from('recommendations')
-    .select('*')
-    .eq('organization_id', orgId)
-    .order('created_at', { ascending: false })
+  try {
+    const { data, error } = await supabase
+      .from('recommendations')
+      .select('*')
+      .eq('organization_id', orgId)
+      .order('created_at', { ascending: false })
 
-  return { data: (data ?? []) as Recommendation[], error: error?.message ?? null }
+    return { data: (data ?? []) as Recommendation[], error: error?.message ?? null }
+  } catch {
+    return { data: [], error: 'Failed to connect to database' }
+  }
 }

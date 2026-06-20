@@ -4,23 +4,42 @@ import type { ApiResult } from "@repo/types";
 import { createClient } from "../lib/supabase";
 
 const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
+const REQUEST_TIMEOUT_MS = 15_000;
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<ApiResult<T>> {
   const sb = createClient();
   const { data: { session } } = await sb.auth.getSession();
   const token = session?.access_token;
 
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options?.headers,
-    },
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-  const json = await res.json() as ApiResult<T>;
-  return json;
+  try {
+    const res = await fetch(`${API_URL}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options?.headers,
+      },
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as ApiResult<T> | null;
+      if (body?.error) return body as ApiResult<T>;
+      return { data: null, error: { code: `HTTP_${res.status}`, message: `Request failed (${res.status})` } };
+    }
+
+    return await res.json() as ApiResult<T>;
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      return { data: null, error: { code: "TIMEOUT", message: "Request timed out. Try again in a moment." } };
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export function useApi() {
@@ -38,7 +57,8 @@ export function useApi() {
       }
       return result.data;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      const msg = err instanceof Error ? err.message : "Erro de conexão. Verifique sua rede.";
+      setError(msg);
       return null;
     } finally {
       setLoading(false);
