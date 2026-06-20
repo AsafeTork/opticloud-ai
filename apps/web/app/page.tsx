@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "../src/lib/supabase";
+import { createClient, isConfigured } from "../src/lib/supabase";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -54,6 +54,12 @@ export default function LoginPage() {
           <p className="text-gray-400">Otimização de nuvem com inteligência artificial</p>
         </div>
 
+        {!isConfigured && (
+          <div className="mb-4 p-4 bg-yellow-900/50 border border-yellow-700 rounded-xl text-yellow-300 text-sm text-center">
+            ⚙️ Serviço em configuração — tente novamente em instantes.
+          </div>
+        )}
+
         <div className="bg-gray-800 rounded-2xl p-8 border border-gray-700">
           <h1 className="text-xl font-semibold text-white mb-6">
             {mode === "login" ? "Entrar na sua conta" : "Criar conta grátis"}
@@ -72,6 +78,7 @@ export default function LoginPage() {
               <input
                 type="email"
                 required
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px]"
@@ -84,6 +91,7 @@ export default function LoginPage() {
                 type="password"
                 required
                 minLength={6}
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px]"
