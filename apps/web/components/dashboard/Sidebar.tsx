@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import {
   LayoutDashboard,
@@ -14,17 +15,20 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Logo } from "@/components/logo"
+import { useAuth } from "@/hooks/useAuth"
+import { apiFetch } from "@/lib/api"
+import type { DashboardSummary } from "@repo/types"
 
 interface NavItem {
   label: string
   href: string
   icon: LucideIcon
-  badge?: number
+  badgeKey?: "anomalies"
 }
 
 const NAV: NavItem[] = [
   { label: "Visão Geral",      href: "/dashboard",                 icon: LayoutDashboard },
-  { label: "Anomalias",        href: "/dashboard/anomalies",       icon: AlertTriangle, badge: 23 },
+  { label: "Anomalias",        href: "/dashboard/anomalies",       icon: AlertTriangle, badgeKey: "anomalies" },
   { label: "Recomendações",    href: "/dashboard/recommendations", icon: Lightbulb      },
   { label: "Contas Cloud",     href: "/dashboard/accounts",        icon: Cloud          },
   { label: "Orçamentos",       href: "/dashboard/budgets",         icon: Wallet         },
@@ -41,10 +45,23 @@ interface SidebarProps {
 export function Sidebar({ onAddAccount }: SidebarProps) {
   const pathname = usePathname()
   const router   = useRouter()
+  const { user, signOut } = useAuth()
+  const [criticalAlerts, setCriticalAlerts] = useState<number | null>(null)
 
-  function handleLogout() {
+  useEffect(() => {
+    if (!user) return
+    apiFetch<DashboardSummary>("/api/dashboard/summary").then((s) => {
+      if (s) setCriticalAlerts(s.critical_alerts)
+    })
+  }, [user])
+
+  async function handleLogout() {
+    await signOut()
     router.push("/")
   }
+
+  const initials = (user?.email ?? "??").slice(0, 2).toUpperCase()
+  const displayEmail = user?.email ?? ""
 
   return (
     <aside className="flex flex-col w-60 shrink-0 h-screen bg-sidebar border-r border-sidebar-border fixed left-0 top-0 z-30">
@@ -68,6 +85,10 @@ export function Sidebar({ onAddAccount }: SidebarProps) {
       <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5" aria-label="Navegação principal">
         {NAV.map((item) => {
           const active = pathname === item.href
+          const badge = item.badgeKey === "anomalies" && criticalAlerts != null && criticalAlerts > 0
+            ? criticalAlerts
+            : null
+
           return (
             <a
               key={item.href}
@@ -82,9 +103,9 @@ export function Sidebar({ onAddAccount }: SidebarProps) {
             >
               <item.icon className="size-4 shrink-0" />
               <span className="flex-1">{item.label}</span>
-              {item.badge != null && (
+              {badge != null && (
                 <span className="px-1.5 py-0.5 rounded-md bg-danger/15 text-danger text-[10px] font-medium tabular-nums">
-                  {item.badge}
+                  {badge}
                 </span>
               )}
             </a>
@@ -113,14 +134,13 @@ export function Sidebar({ onAddAccount }: SidebarProps) {
           )
         })}
 
-        {/* User row + Logout */}
+        {/* User row */}
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-sidebar-accent transition-colors duration-150 cursor-pointer group">
           <div className="size-7 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-            <span className="text-[11px] font-semibold text-primary">JD</span>
+            <span className="text-[11px] font-semibold text-primary">{initials}</span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-sidebar-foreground truncate">João Dinis</p>
-            <p className="text-[10px] text-muted-foreground truncate">joao@empresa.com</p>
+            <p className="text-xs font-medium text-sidebar-foreground truncate">{displayEmail}</p>
           </div>
           <button
             onClick={handleLogout}
