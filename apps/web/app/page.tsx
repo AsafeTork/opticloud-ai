@@ -30,7 +30,7 @@ export default function LoginPage() {
       if (mode === "signup") {
         const { error: err } = await sb.auth.signUp({ email, password });
         if (err) throw err;
-        setMessage("Conta criada! Verifique seu e-mail para confirmar.");
+        router.push("/dashboard");
       } else {
         const { error: err } = await sb.auth.signInWithPassword({ email, password });
         if (err) throw err;
