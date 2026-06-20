@@ -16,6 +16,7 @@ import { CostTrendChart } from "../../src/components/dashboard/CostTrendChart";
 import { ProviderBreakdown } from "../../src/components/dashboard/ProviderBreakdown";
 import { AnomalyList } from "../../src/components/dashboard/AnomalyList";
 import { RecommendationsCritical } from "../../src/components/dashboard/RecommendationsCritical";
+import { AddAccountModal } from "../../src/components/dashboard/AddAccountModal";
 import {
   SkeletonKpiGrid,
   SkeletonChart,
@@ -112,49 +113,98 @@ const STATUS_BADGE: Record<string, string> = {
 
 const PROVIDER_LABEL: Record<string, string> = { aws: "AWS", gcp: "GCP", azure: "Azure" };
 
-function AccountsTab({ accounts, onRefresh }: { accounts: CloudAccount[]; onRefresh: () => void }) {
-  if (accounts.length === 0) {
-    return (
-      <div className="rounded-xl border border-[#2A2D3E] bg-[#1A1D27]/80 p-12 text-center">
-        <p className="text-3xl mb-3">🔌</p>
-        <p className="text-sm font-medium text-[#E5E7EB]">Nenhuma conta conectada</p>
-        <p className="text-xs text-[#6B7280] mt-1">Adicione uma conta cloud para começar</p>
-      </div>
-    );
-  }
+function AccountsTab({
+  accounts,
+  onRefresh,
+  apiFetch,
+}: {
+  accounts: CloudAccount[];
+  onRefresh: () => void;
+  apiFetch: <T>(path: string, options?: RequestInit) => Promise<T | null>;
+}) {
+  const [modalOpen, setModalOpen] = useState(false);
+
   return (
-    <div className="space-y-3">
-      <div className="flex justify-end">
-        <button
-          onClick={onRefresh}
-          className="text-xs px-3 py-2 rounded-lg bg-[#1A1D27] border border-[#2A2D3E]
-                     text-[#9CA3AF] hover:text-[#E5E7EB] focus-visible:ring-2 focus-visible:ring-[#0066FF]
-                     transition-colors min-h-[44px]"
-        >
-          Atualizar
-        </button>
-      </div>
-      {accounts.map((a) => (
-        <div key={a.id} className="rounded-xl border border-[#2A2D3E] bg-[#1A1D27]/80 p-4 hover:bg-[#222535] transition-colors">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-[#E5E7EB]">{a.account_name}</p>
-              <p className="text-xs text-[#6B7280]">{PROVIDER_LABEL[a.provider]} · {a.account_id}</p>
-            </div>
-            <div className="flex items-center gap-3">
-              {a.monthly_cost_usd != null && (
-                <span className="text-sm font-bold text-[#E5E7EB]">
-                  ${a.monthly_cost_usd.toFixed(0)}/mês
-                </span>
-              )}
-              <span className={`text-xs px-2 py-1 rounded-full font-medium ${STATUS_BADGE[a.status] ?? ""}`}>
-                {a.status}
-              </span>
-            </div>
+    <>
+      <AddAccountModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSuccess={onRefresh}
+        apiFetch={apiFetch}
+      />
+
+      <div className="space-y-4">
+        {/* Header row */}
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-[#9CA3AF]">
+            {accounts.length === 0 ? "Nenhuma conta conectada" : `${accounts.length} conta${accounts.length !== 1 ? "s" : ""} conectada${accounts.length !== 1 ? "s" : ""}`}
+          </p>
+          <div className="flex gap-2">
+            {accounts.length > 0 && (
+              <button
+                onClick={onRefresh}
+                className="text-xs px-3 py-2 rounded-lg bg-[#1A1D27] border border-[#2A2D3E]
+                           text-[#9CA3AF] hover:text-[#E5E7EB] focus-visible:ring-2 focus-visible:ring-[#0066FF]
+                           transition-colors min-h-[44px]"
+              >
+                Atualizar
+              </button>
+            )}
+            <button
+              onClick={() => setModalOpen(true)}
+              className="text-sm px-4 py-2 rounded-xl bg-[#0066FF] text-white font-medium
+                         hover:bg-[#0052CC] focus-visible:ring-2 focus-visible:ring-[#0066FF]
+                         focus-visible:ring-offset-2 focus-visible:ring-offset-[#0F1117]
+                         transition-colors min-h-[44px]"
+            >
+              + Adicionar conta
+            </button>
           </div>
         </div>
-      ))}
-    </div>
+
+        {/* Empty state */}
+        {accounts.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-[#2A2D3E] bg-[#1A1D27]/50 p-16 text-center">
+            <p className="text-4xl mb-4">🔌</p>
+            <p className="text-sm font-medium text-[#E5E7EB] mb-1">Nenhuma conta cloud conectada</p>
+            <p className="text-xs text-[#6B7280] mb-6">Conecte AWS, GCP ou Azure para começar a monitorar custos</p>
+            <button
+              onClick={() => setModalOpen(true)}
+              className="px-6 py-3 rounded-xl bg-[#0066FF] text-white font-medium text-sm
+                         hover:bg-[#0052CC] focus-visible:ring-2 focus-visible:ring-[#0066FF]
+                         focus-visible:ring-offset-2 focus-visible:ring-offset-[#0F1117]
+                         transition-colors min-h-[48px]"
+            >
+              Conectar primeira conta
+            </button>
+          </div>
+        ) : (
+          /* Account list */
+          <div className="space-y-3">
+            {accounts.map((a) => (
+              <div key={a.id} className="rounded-xl border border-[#2A2D3E] bg-[#1A1D27]/80 p-4 hover:bg-[#222535] transition-colors">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-[#E5E7EB]">{a.account_name}</p>
+                    <p className="text-xs text-[#6B7280] mt-0.5">{PROVIDER_LABEL[a.provider]} · {a.account_id}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {a.monthly_cost_usd != null && (
+                      <span className="text-sm font-bold text-[#E5E7EB]">
+                        ${a.monthly_cost_usd.toFixed(0)}/mês
+                      </span>
+                    )}
+                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${STATUS_BADGE[a.status] ?? ""}`}>
+                      {a.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -368,7 +418,7 @@ export default function DashboardPage() {
         {activeTab === "accounts" && (
           (authLoading || dataLoading)
             ? <div className="space-y-3"><SkeletonList rows={3} /></div>
-            : <AccountsTab accounts={accounts} onRefresh={fetchAll} />
+            : <AccountsTab accounts={accounts} onRefresh={fetchAll} apiFetch={apiFetch} />
         )}
 
         {/* ── Recs Tab ── */}
