@@ -1,15 +1,16 @@
 export const colors = {
   primary: '#0066FF',
+  primaryHover: '#0052CC',
   success: '#00D4AA',
   warning: '#FFB800',
   danger: '#FF4757',
   background: '#0F1117',
   surface: '#1A1D27',
-  surfaceHover: '#222535',
-  border: '#2A2D3E',
-  textPrimary: '#E5E7EB',
-  textSecondary: '#9CA3AF',
-  textMuted: '#6B7280',
+  elevated: '#242836',
+  border: '#2A2E3A',
+  textPrimary: '#F1F3F5',
+  textSecondary: '#8B8FA3',
+  textMuted: '#5A5F73',
 } as const
 
 export const providerColors = {

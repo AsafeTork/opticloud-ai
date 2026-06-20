@@ -68,14 +68,9 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-3">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-lg"
-              style={{ background: "linear-gradient(135deg, #0066FF, #0052CC)" }}
-            >
-              O
-            </div>
-            <span className="text-2xl font-bold text-[#E5E7EB]">OptiCloud AI</span>
+          <div className="inline-flex items-center gap-3 mb-3">
+            <img src="/logo.png" alt="OptiCloud AI" className="w-12 h-12 object-contain" />
+            <span className="text-2xl font-bold text-[#F1F3F5]">OptiCloud AI</span>
           </div>
           <p className="text-sm text-[#6B7280]">Otimização de nuvem com inteligência artificial</p>
         </div>

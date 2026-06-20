@@ -284,13 +284,8 @@ export default function DashboardPage() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
-              style={{ background: "linear-gradient(135deg, #0066FF, #0052CC)" }}
-            >
-              O
-            </div>
-            <span className="text-base font-semibold tracking-tight">OptiCloud AI</span>
+            <img src="/logo.png" alt="OptiCloud AI" className="w-8 h-8 object-contain" />
+            <span className="text-base font-semibold tracking-tight text-[#F1F3F5]">OptiCloud AI</span>
             {userRole !== "member" && (
               <span className="hidden sm:block text-[10px] px-1.5 py-0.5 rounded-full bg-[#0066FF]/15 text-[#0066FF] font-medium">
                 {userRole}
