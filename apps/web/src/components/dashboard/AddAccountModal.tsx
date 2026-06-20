@@ -25,7 +25,7 @@ type Action =
   | { type: "RESET" };
 
 const INITIAL: FormState = {
-  provider: "aws",
+  provider: "gcp",
   account_id: "",
   account_name: "",
   submitting: false,
@@ -45,24 +45,22 @@ function reducer(state: FormState, action: Action): FormState {
   }
 }
 
-const PROVIDERS: { value: CloudProvider; label: string; placeholder: string; hint: string }[] = [
-  {
-    value: "aws",
-    label: "AWS",
-    placeholder: "123456789012",
-    hint: "Account ID de 12 dígitos (AWS Console → canto superior direito)",
-  },
+const PROVIDERS: { value: CloudProvider; label: string; placeholder: string; hint: string; link: string; linkLabel: string }[] = [
   {
     value: "gcp",
     label: "GCP",
     placeholder: "meu-projeto-123",
-    hint: "Project ID (console.cloud.google.com → selecione o projeto)",
+    hint: "Project ID — encontre no seletor de projetos do Console.",
+    link: "https://console.cloud.google.com",
+    linkLabel: "Abrir Google Cloud Console →",
   },
   {
     value: "azure",
     label: "Azure",
     placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-    hint: "Subscription ID (portal.azure.com → Subscriptions)",
+    hint: "Subscription ID — encontre em Assinaturas no Portal.",
+    link: "https://portal.azure.com/#view/Microsoft_Azure_Billing/SubscriptionsBladeV2",
+    linkLabel: "Abrir Portal Azure →",
   },
 ];
 
@@ -151,7 +149,7 @@ export function AddAccountModal({ open, onClose, onSuccess, apiFetch }: Props) {
           {/* Provider selector */}
           <fieldset>
             <legend className="text-xs font-medium text-[#9CA3AF] mb-2">Provedor</legend>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {PROVIDERS.map((p) => (
                 <button
                   key={p.value}
@@ -172,7 +170,7 @@ export function AddAccountModal({ open, onClose, onSuccess, apiFetch }: Props) {
           {/* Account ID */}
           <div>
             <label htmlFor="account_id" className="block text-xs font-medium text-[#9CA3AF] mb-1.5">
-              {state.provider === "aws" ? "Account ID" : state.provider === "gcp" ? "Project ID" : "Subscription ID"}
+              {state.provider === "gcp" ? "Project ID" : "Subscription ID"}
             </label>
             <input
               ref={firstInputRef}
@@ -188,7 +186,17 @@ export function AddAccountModal({ open, onClose, onSuccess, apiFetch }: Props) {
               autoComplete="off"
               spellCheck={false}
             />
-            <p className="text-[10px] text-[#6B7280] mt-1.5">{provider.hint}</p>
+            <p className="text-[10px] text-[#6B7280] mt-1">
+              {provider.hint}{" "}
+              <a
+                href={provider.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#0066FF] hover:text-[#3385FF] underline-offset-2 hover:underline"
+              >
+                {provider.linkLabel}
+              </a>
+            </p>
           </div>
 
           {/* Account Name */}
@@ -201,7 +209,7 @@ export function AddAccountModal({ open, onClose, onSuccess, apiFetch }: Props) {
               type="text"
               value={state.account_name}
               onChange={(e) => dispatch({ type: "SET_FIELD", field: "account_name", value: e.target.value })}
-              placeholder={`Ex: ${state.provider === "aws" ? "Produção AWS" : state.provider === "gcp" ? "GCP Analytics" : "Azure Infra"}`}
+              placeholder={`Ex: ${state.provider === "gcp" ? "GCP Analytics" : "Azure Infra"}`}
               className="w-full px-3 py-2.5 rounded-xl border border-[#2A2D3E] bg-[#0F1117]
                          text-sm text-[#E5E7EB] placeholder-[#4B5563]
                          focus:outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]
