@@ -18,6 +18,18 @@ services:
         sync: false
       - key: API_CORS_ORIGIN
         sync: false
+      - key: GCP_PROJECT_ID
+        sync: false
+      - key: GCP_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: AZURE_TENANT_ID
+        sync: false
+      - key: AZURE_CLIENT_ID
+        sync: false
+      - key: AZURE_CLIENT_SECRET
+        sync: false
+      - key: AZURE_SUBSCRIPTION_ID
+        sync: false
 
   - type: static_site
     name: opticloud-web
