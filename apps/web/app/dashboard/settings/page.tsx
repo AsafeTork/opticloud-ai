@@ -23,8 +23,8 @@ export default function SettingsPage() {
   const router = useRouter()
   const { user, loading: authLoading, signOut } = useAuth()
 
-  const [tab, setTab]       = useState<Tab>("profile")
-  const [toasts, setToasts] = useState<Toast[]>([])
+  const [tab, setTab]         = useState<Tab>("profile")
+  const [toasts, setToasts]   = useState<Toast[]>([])
   const [profile, setProfile] = useState<Profile | null>(null)
   const [org, setOrg]         = useState<Organization | null>(null)
 
@@ -62,59 +62,56 @@ export default function SettingsPage() {
 
   return (
     <DashboardShell title="Configurações" breadcrumb="Dashboard / Configurações" onToast={addToast}>
-      {/* Layout: coluna única no mobile, 2 colunas no md+ */}
       <div className="flex flex-col md:flex-row gap-4 md:gap-6">
 
-        {/* Nav de abas — chips rolando no mobile, lista vertical no md+ */}
-        <nav className="md:w-44 md:shrink-0">
-          {/* Mobile: scroll horizontal */}
-          <div className="flex md:hidden gap-2 overflow-x-auto pb-1 no-scrollbar">
-            {TABS.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => setTab(id)}
-                className={`flex items-center gap-1.5 shrink-0 h-9 px-3 rounded-lg text-sm transition-all duration-150 ${
-                  tab === id
-                    ? "bg-accent text-foreground font-medium"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                }`}
-              >
-                <Icon className="size-3.5 shrink-0" />
-                {label}
-              </button>
+        {/* ── Mobile nav: select + botão Sair na mesma linha ── */}
+        <div className="flex items-center gap-2 md:hidden">
+          <select
+            value={tab}
+            onChange={(e) => setTab(e.target.value as Tab)}
+            className="flex-1 h-10 rounded-lg border border-border bg-input px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            {TABS.map(({ id, label }) => (
+              <option key={id} value={id}>{label}</option>
             ))}
-          </div>
+          </select>
+          <button
+            onClick={handleLogout}
+            className="h-10 px-3 rounded-lg flex items-center gap-2 text-sm text-danger border border-danger/30 hover:bg-danger/10 transition-all duration-150 shrink-0"
+          >
+            <LogOut className="size-4" />
+            Sair
+          </button>
+        </div>
 
-          {/* Desktop: lista vertical */}
-          <div className="hidden md:flex md:flex-col space-y-1">
-            {TABS.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => setTab(id)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
-                  tab === id
-                    ? "bg-accent text-foreground font-medium"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                }`}
-              >
-                <Icon className="size-4 shrink-0" />
-                {label}
-              </button>
-            ))}
-
-            <div className="pt-4">
-              <button
-                onClick={handleLogout}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-danger hover:bg-danger/10 transition-all duration-150"
-              >
-                <LogOut className="size-4 shrink-0" />
-                Sair
-              </button>
-            </div>
+        {/* ── Desktop nav: lista vertical ── */}
+        <nav className="hidden md:flex md:flex-col md:w-44 md:shrink-0 space-y-1">
+          {TABS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
+                tab === id
+                  ? "bg-accent text-foreground font-medium"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+              }`}
+            >
+              <Icon className="size-4 shrink-0" />
+              {label}
+            </button>
+          ))}
+          <div className="pt-4">
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-danger hover:bg-danger/10 transition-all duration-150"
+            >
+              <LogOut className="size-4 shrink-0" />
+              Sair
+            </button>
           </div>
         </nav>
 
-        {/* Conteúdo */}
+        {/* ── Conteúdo ── */}
         <div className="flex-1 min-w-0 rounded-xl border border-border bg-card p-4 sm:p-6 card-enter">
           {tab === "profile" && (
             <div className="space-y-5">
@@ -216,17 +213,6 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
-
-          {/* Botão Sair — visível apenas no mobile (no desktop fica na nav) */}
-          <div className="md:hidden mt-6 pt-4 border-t border-border">
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 text-sm text-danger hover:text-danger/80 transition-all duration-150"
-            >
-              <LogOut className="size-4 shrink-0" />
-              Sair da conta
-            </button>
-          </div>
         </div>
       </div>
 
