@@ -4,7 +4,7 @@ services:
     env: node
     plan: free
     region: oregon
-    buildCommand: npm install && npx turbo build --filter=api
+    buildCommand: npm install --include=dev && npx turbo build --filter=api --ui=stream
     startCommand: node apps/api/dist/index.js
     healthCheckPath: /health
     envVars:
@@ -21,7 +21,7 @@ services:
 
   - type: static_site
     name: opticloud-web
-    buildCommand: npm install && npx turbo build --filter=web
+    buildCommand: npm install --include=dev && npx turbo build --filter=web --ui=stream
     publishPath: apps/web/out
     envVars:
       - key: NEXT_PUBLIC_SUPABASE_URL
