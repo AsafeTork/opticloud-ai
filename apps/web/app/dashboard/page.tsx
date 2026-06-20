@@ -165,14 +165,14 @@ export default function DashboardPage() {
   if (authLoading) return null
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-background overflow-x-hidden">
       <Sidebar
         onAddAccount={() => setModalOpen(true)}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
 
-      <div className="flex-1 lg:ml-64 flex flex-col min-h-screen min-w-0">
+      <div className="flex-1 lg:ml-64 flex flex-col min-w-0">
         <header className="sticky top-0 z-20 flex items-center justify-between h-14 px-4 sm:px-6 bg-background/80 backdrop-blur-md border-b border-border shrink-0">
           <div className="flex items-center gap-3">
             <button
