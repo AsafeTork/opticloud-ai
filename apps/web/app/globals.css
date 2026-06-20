@@ -157,3 +157,11 @@
 .card-enter {
   animation: card-in 200ms ease-out both;
 }
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

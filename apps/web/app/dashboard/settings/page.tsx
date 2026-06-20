@@ -23,10 +23,10 @@ export default function SettingsPage() {
   const router = useRouter()
   const { user, loading: authLoading, signOut } = useAuth()
 
-  const [tab, setTab] = useState<Tab>("profile")
+  const [tab, setTab]       = useState<Tab>("profile")
   const [toasts, setToasts] = useState<Toast[]>([])
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [org, setOrg] = useState<Organization | null>(null)
+  const [org, setOrg]         = useState<Organization | null>(null)
 
   useEffect(() => {
     if (!authLoading && !user) router.push("/")
@@ -56,57 +56,80 @@ export default function SettingsPage() {
 
   if (authLoading) return null
 
-  const displayName = profile?.full_name ?? user?.email ?? "Usuário"
+  const displayName  = profile?.full_name ?? user?.email ?? "Usuário"
   const displayEmail = user?.email ?? ""
-  const initials = displayName.slice(0, 2).toUpperCase()
+  const initials     = displayName.slice(0, 2).toUpperCase()
 
   return (
     <DashboardShell title="Configurações" breadcrumb="Dashboard / Configurações" onToast={addToast}>
-      <div className="flex gap-6 min-h-[500px]">
-        {/* Sidebar de abas */}
-        <nav className="w-44 shrink-0 space-y-1">
-          {TABS.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setTab(id)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
-                tab === id
-                  ? "bg-accent text-foreground font-medium"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
-              }`}
-            >
-              <Icon className="size-4 shrink-0" />
-              {label}
-            </button>
-          ))}
+      {/* Layout: coluna única no mobile, 2 colunas no md+ */}
+      <div className="flex flex-col md:flex-row gap-4 md:gap-6">
 
-          <div className="pt-4">
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-danger hover:bg-danger/10 transition-all duration-150"
-            >
-              <LogOut className="size-4 shrink-0" />
-              Sair
-            </button>
+        {/* Nav de abas — chips rolando no mobile, lista vertical no md+ */}
+        <nav className="md:w-44 md:shrink-0">
+          {/* Mobile: scroll horizontal */}
+          <div className="flex md:hidden gap-2 overflow-x-auto pb-1 no-scrollbar">
+            {TABS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setTab(id)}
+                className={`flex items-center gap-1.5 shrink-0 h-9 px-3 rounded-lg text-sm transition-all duration-150 ${
+                  tab === id
+                    ? "bg-accent text-foreground font-medium"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                }`}
+              >
+                <Icon className="size-3.5 shrink-0" />
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Desktop: lista vertical */}
+          <div className="hidden md:flex md:flex-col space-y-1">
+            {TABS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setTab(id)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
+                  tab === id
+                    ? "bg-accent text-foreground font-medium"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                }`}
+              >
+                <Icon className="size-4 shrink-0" />
+                {label}
+              </button>
+            ))}
+
+            <div className="pt-4">
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-danger hover:bg-danger/10 transition-all duration-150"
+              >
+                <LogOut className="size-4 shrink-0" />
+                Sair
+              </button>
+            </div>
           </div>
         </nav>
 
         {/* Conteúdo */}
-        <div className="flex-1 rounded-xl border border-border bg-card p-6 card-enter">
+        <div className="flex-1 min-w-0 rounded-xl border border-border bg-card p-4 sm:p-6 card-enter">
           {tab === "profile" && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div>
                 <h2 className="text-sm font-semibold text-foreground">Perfil</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">Suas informações pessoais.</p>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="size-14 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                  <span className="text-lg font-semibold text-primary">{initials}</span>
+              <div className="flex items-center gap-3">
+                <div className="size-12 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                  <span className="text-base font-semibold text-primary">{initials}</span>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">{displayName}</p>
-                  <p className="text-xs text-muted-foreground">{displayEmail}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5 capitalize">{profile?.role ?? "—"}</p>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
+                  <p className="text-xs text-muted-foreground truncate">{displayEmail}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{profile?.role ?? "—"}</p>
                 </div>
               </div>
               <div className="space-y-3 max-w-sm">
@@ -132,7 +155,7 @@ export default function SettingsPage() {
           )}
 
           {tab === "organization" && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div>
                 <h2 className="text-sm font-semibold text-foreground">Organização</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">Detalhes da sua organização.</p>
@@ -159,10 +182,10 @@ export default function SettingsPage() {
           )}
 
           {tab === "notifications" && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div>
                 <h2 className="text-sm font-semibold text-foreground">Notificações</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Em breve — configurações de alertas por e-mail e Slack.</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Em breve — alertas por e-mail e Slack.</p>
               </div>
               <div className="rounded-xl border border-border p-8 flex flex-col items-center gap-2 text-center">
                 <Bell className="size-8 text-muted-foreground" />
@@ -172,20 +195,20 @@ export default function SettingsPage() {
           )}
 
           {tab === "security" && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div>
                 <h2 className="text-sm font-semibold text-foreground">Segurança</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Gerenciamento de credenciais e autenticação.</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Credenciais e autenticação.</p>
               </div>
               <div className="space-y-3 max-w-sm">
                 <div className="flex items-center justify-between p-3 rounded-lg border border-border">
                   <div className="flex items-center gap-2">
-                    <Key className="size-4 text-muted-foreground" />
+                    <Key className="size-4 text-muted-foreground shrink-0" />
                     <span className="text-sm text-foreground">Alterar senha</span>
                   </div>
                   <button
                     onClick={() => addToast("Redefinição de senha enviada por e-mail.")}
-                    className="text-xs text-primary hover:underline transition-all duration-150"
+                    className="text-xs text-primary hover:underline transition-all duration-150 shrink-0"
                   >
                     Enviar link
                   </button>
@@ -193,6 +216,17 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
+
+          {/* Botão Sair — visível apenas no mobile (no desktop fica na nav) */}
+          <div className="md:hidden mt-6 pt-4 border-t border-border">
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 text-sm text-danger hover:text-danger/80 transition-all duration-150"
+            >
+              <LogOut className="size-4 shrink-0" />
+              Sair da conta
+            </button>
+          </div>
         </div>
       </div>
 
