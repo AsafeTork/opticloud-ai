@@ -1,33 +1,45 @@
-import type { Metadata } from "next";
-import localFont from "next/font/local";
-import "./globals.css";
+import { Analytics } from '@vercel/analytics/next'
+import type { Metadata, Viewport } from 'next'
+import { Geist, Geist_Mono } from 'next/font/google'
+import './globals.css'
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  display: "swap",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  display: "swap",
-});
+const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
+const geistMono = Geist_Mono({
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
+})
 
 export const metadata: Metadata = {
-  title: "OptiCloud AI — Cloud Cost Optimization",
-  description: "AI-powered recommendations to reduce your cloud spending",
+  title: 'OptiCloud AI — Otimização de Custos Cloud',
+  description: 'Plataforma de otimização de custos de nuvem com inteligência artificial.',
+  generator: 'v0.app',
   icons: {
-    icon: "/favicon.png",
-    apple: "/logo.png",
+    icon: [
+      { url: '/icon-light-32x32.png', media: '(prefers-color-scheme: light)' },
+      { url: '/icon-dark-32x32.png',  media: '(prefers-color-scheme: dark)'  },
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
+    apple: '/apple-icon.png',
   },
-};
+}
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export const viewport: Viewport = {
+  colorScheme: 'dark',
+  themeColor: '#0a0b14',
+}
+
+export default function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="pt-BR" className="dark">
-      <body className={`${geistSans.variable} ${geistMono.variable} bg-gray-900 text-gray-100 antialiased`}>
+    <html
+      lang="pt-BR"
+      className={`${geistSans.variable} ${geistMono.variable} dark bg-background`}
+    >
+      <body className="font-sans antialiased">
         {children}
+        {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
-  );
+  )
 }

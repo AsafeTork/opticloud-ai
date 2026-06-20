@@ -1,224 +1,256 @@
-"use client";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { createClient, isConfigured } from "../src/lib/supabase";
+"use client"
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { Eye, EyeOff, Cloud, Zap, Shield, BarChart3 } from "lucide-react"
+import { Logo } from "@/components/logo"
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail]       = useState("");
-  const [password, setPassword] = useState("");
-  const [mode, setMode]         = useState<"login" | "signup">("login");
-  const [loading, setLoading]   = useState(false);
-  const [oauthLoading, setOauthLoading] = useState<"google" | "github" | null>(null);
-  const [error, setError]       = useState<string | null>(null);
-
-  useEffect(() => {
-    const sb = createClient();
-    sb.auth.getSession().then(({ data }) => {
-      if (data.session) router.push("/dashboard");
-    }).catch(() => null);
-  }, [router]);
+  const router = useRouter()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (loading) return;
-    setLoading(true);
-    setError(null);
-    const sb = createClient();
-    try {
-      if (mode === "signup") {
-        const { error: err } = await sb.auth.signUp({ email, password });
-        if (err) throw err;
-      } else {
-        const { error: err } = await sb.auth.signInWithPassword({ email, password });
-        if (err) throw err;
-      }
-      router.push("/dashboard");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro desconhecido");
-    } finally {
-      setLoading(false);
+    e.preventDefault()
+    setError("")
+    if (!email || !password) {
+      setError("Preencha e-mail e senha.")
+      return
     }
-  }
-
-  async function handleOAuth(provider: "google" | "github") {
-    if (oauthLoading) return;
-    setOauthLoading(provider);
-    setError(null);
-    try {
-      const sb = createClient();
-      const { error: err } = await sb.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`,
-        },
-      });
-      if (err) throw err;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : `Erro ao entrar com ${provider}`);
-      setOauthLoading(null);
-    }
+    setLoading(true)
+    // Simula autenticação
+    await new Promise((r) => setTimeout(r, 900))
+    setLoading(false)
+    router.push("/dashboard")
   }
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center p-4"
-      style={{ backgroundColor: "#0F1117" }}
-    >
-      <div className="w-full max-w-md">
+    <main className="min-h-screen bg-background flex">
+      {/* Painel esquerdo — visual */}
+      <aside className="hidden lg:flex flex-col justify-between w-[480px] shrink-0 bg-card border-r border-border p-10 relative overflow-hidden">
+        {/* Grid decorativo de fundo */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 opacity-[0.04]"
+          style={{
+            backgroundImage:
+              "repeating-linear-gradient(0deg,oklch(1 0 0) 0,oklch(1 0 0) 1px,transparent 1px,transparent 40px),repeating-linear-gradient(90deg,oklch(1 0 0) 0,oklch(1 0 0) 1px,transparent 1px,transparent 40px)",
+          }}
+        />
+
         {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-3 mb-3">
-            <img src="/logo.png" alt="OptiCloud AI" className="w-12 h-12 object-contain" />
-            <span className="text-2xl font-bold text-[#F1F3F5]">OptiCloud AI</span>
-          </div>
-          <p className="text-sm text-[#6B7280]">Otimização de nuvem com inteligência artificial</p>
+        <div className="relative z-10">
+          <Logo iconSize={36} variant="default" />
         </div>
 
-        {!isConfigured && (
-          <div className="mb-4 p-4 rounded-xl border border-[#FFB800]/30 bg-[#FFB800]/10 text-[#FFB800] text-sm text-center">
-            ⚙️ Serviço em configuração — tente novamente em instantes.
+        {/* Central — stats de demonstração */}
+        <div className="relative z-10 space-y-6">
+          <h2 className="text-2xl font-semibold text-foreground leading-snug text-balance">
+            Visibilidade total dos seus custos cloud em um só lugar.
+          </h2>
+
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              {
+                icon: BarChart3,
+                label: "Custo mensal monitorado",
+                value: "R$ 4,2 M",
+                color: "text-chart-1",
+                bg: "bg-[oklch(0.60_0.22_264/0.12)]",
+              },
+              {
+                icon: Zap,
+                label: "Anomalias detectadas",
+                value: "23 hoje",
+                color: "text-warning",
+                bg: "bg-[oklch(0.75_0.18_75/0.12)]",
+              },
+              {
+                icon: Shield,
+                label: "Contas conectadas",
+                value: "12 provedores",
+                color: "text-success",
+                bg: "bg-[oklch(0.68_0.18_145/0.12)]",
+              },
+              {
+                icon: Cloud,
+                label: "Economia identificada",
+                value: "R$ 380 K",
+                color: "text-chart-2",
+                bg: "bg-[oklch(0.72_0.15_194/0.12)]",
+              },
+            ].map(({ icon: Icon, label, value, color, bg }, i) => (
+              <div
+                key={label}
+                className="card-enter rounded-xl border border-border p-4 space-y-2 hover:border-[oklch(1_0_0/0.15)] transition-colors duration-150"
+                style={{ animationDelay: `${i * 50}ms` }}
+              >
+                <div className={`size-8 rounded-lg ${bg} flex items-center justify-center`}>
+                  <Icon className={`size-4 ${color}`} />
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">{label}</p>
+                <p className={`text-lg font-semibold ${color}`}>{value}</p>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
 
-        <div className="rounded-2xl border border-[#2A2D3E] bg-[#1A1D27] p-8">
-          <h1 className="text-lg font-semibold text-[#E5E7EB] mb-6">
-            {mode === "login" ? "Entrar na sua conta" : "Criar conta grátis"}
-          </h1>
+        {/* Rodapé lateral */}
+        <p className="text-xs text-muted-foreground relative z-10">
+          © 2025 OptiCloud AI. Todos os direitos reservados.
+        </p>
+      </aside>
 
-          {error && (
-            <div className="mb-4 p-3 rounded-lg border border-[#FF4757]/30 bg-[#FF4757]/10 text-[#FF4757] text-sm">
-              {error}
-            </div>
-          )}
-
-          {/* OAuth buttons */}
-          <div className="space-y-3 mb-6">
-            <button
-              onClick={() => void handleOAuth("google")}
-              disabled={!!oauthLoading || loading}
-              className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl
-                         border border-[#2A2D3E] bg-[#0F1117] text-[#E5E7EB] text-sm font-medium
-                         hover:bg-[#222535] hover:border-[#3A3D4E] disabled:opacity-50
-                         focus-visible:ring-2 focus-visible:ring-[#0066FF] transition-colors min-h-[48px]"
-            >
-              {oauthLoading === "google" ? (
-                <span className="text-[#9CA3AF]">Redirecionando...</span>
-              ) : (
-                <>
-                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                    <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
-                    <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
-                    <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
-                    <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-                  </svg>
-                  Continuar com Google
-                </>
-              )}
-            </button>
-
-            <button
-              onClick={() => void handleOAuth("github")}
-              disabled={!!oauthLoading || loading}
-              className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl
-                         border border-[#2A2D3E] bg-[#0F1117] text-[#E5E7EB] text-sm font-medium
-                         hover:bg-[#222535] hover:border-[#3A3D4E] disabled:opacity-50
-                         focus-visible:ring-2 focus-visible:ring-[#0066FF] transition-colors min-h-[48px]"
-            >
-              {oauthLoading === "github" ? (
-                <span className="text-[#9CA3AF]">Redirecionando...</span>
-              ) : (
-                <>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="#E5E7EB">
-                    <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
-                  </svg>
-                  Continuar com GitHub
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Divider */}
-          <div className="flex items-center gap-3 mb-6">
-            <div className="flex-1 h-px bg-[#2A2D3E]" />
-            <span className="text-xs text-[#4B5563]">ou use e-mail</span>
-            <div className="flex-1 h-px bg-[#2A2D3E]" />
+      {/* Painel direito — formulário */}
+      <section className="flex-1 flex items-center justify-center p-6">
+        <div className="w-full max-w-sm space-y-8">
+          {/* Cabeçalho mobile */}
+          <div className="lg:hidden mb-2">
+            <Logo iconSize={32} variant="default" />
           </div>
 
-          {/* Email/password form */}
-          <form onSubmit={(e) => { void handleSubmit(e); }} className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-xs font-medium text-[#9CA3AF] mb-1.5">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold text-foreground tracking-tight">
+              Entrar na sua conta
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Insira suas credenciais para continuar.
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            {/* E-mail */}
+            <div className="space-y-1.5">
+              <label
+                htmlFor="email"
+                className="text-sm font-medium text-foreground"
+              >
                 E-mail
               </label>
               <input
                 id="email"
                 type="email"
-                required
                 autoComplete="email"
+                placeholder="voce@empresa.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="seu@email.com"
-                className="w-full px-4 py-3 rounded-xl border border-[#2A2D3E] bg-[#0F1117]
-                           text-sm text-[#E5E7EB] placeholder-[#4B5563]
-                           focus:outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]
-                           transition-colors min-h-[48px]"
+                className="w-full h-10 rounded-lg border border-border bg-input px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-150"
               />
             </div>
-            <div>
-              <label htmlFor="password" className="block text-xs font-medium text-[#9CA3AF] mb-1.5">
-                Senha
-              </label>
-              <input
-                id="password"
-                type="password"
-                required
-                minLength={6}
-                autoComplete={mode === "login" ? "current-password" : "new-password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-4 py-3 rounded-xl border border-[#2A2D3E] bg-[#0F1117]
-                           text-sm text-[#E5E7EB] placeholder-[#4B5563]
-                           focus:outline-none focus:border-[#0066FF] focus:ring-1 focus:ring-[#0066FF]
-                           transition-colors min-h-[48px]"
-              />
+
+            {/* Senha */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="password"
+                  className="text-sm font-medium text-foreground"
+                >
+                  Senha
+                </label>
+                <button
+                  type="button"
+                  className="text-xs text-primary hover:underline transition-all duration-150"
+                >
+                  Esqueceu a senha?
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full h-10 rounded-lg border border-border bg-input px-3 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-150"
+                />
+                <button
+                  type="button"
+                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-150"
+                >
+                  {showPassword ? (
+                    <EyeOff className="size-4" />
+                  ) : (
+                    <Eye className="size-4" />
+                  )}
+                </button>
+              </div>
             </div>
+
+            {/* Erro */}
+            {error && (
+              <p role="alert" className="text-xs text-danger font-medium">
+                {error}
+              </p>
+            )}
+
+            {/* Botão entrar */}
             <button
               type="submit"
-              disabled={loading || !!oauthLoading}
-              className="w-full py-3 px-4 rounded-xl bg-[#0066FF] text-white text-sm font-semibold
-                         hover:bg-[#0052CC] disabled:opacity-50 disabled:cursor-not-allowed
-                         focus-visible:ring-2 focus-visible:ring-[#0066FF] focus-visible:ring-offset-2
-                         focus-visible:ring-offset-[#1A1D27] transition-colors min-h-[48px]"
+              disabled={loading}
+              className="w-full h-10 rounded-lg bg-primary text-primary-foreground text-sm font-medium transition-all duration-150 hover:opacity-90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg
+                    className="size-4 animate-spin"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeDasharray="31.4"
+                      strokeDashoffset="10"
+                    />
+                  </svg>
+                  Entrando…
+                </span>
+              ) : (
+                "Entrar"
+              )}
             </button>
           </form>
 
-          <p className="mt-5 text-center text-xs text-[#6B7280]">
-            {mode === "login" ? (
-              <>Não tem conta?{" "}
-                <button
-                  onClick={() => { setMode("signup"); setError(null); }}
-                  className="text-[#0066FF] hover:text-[#3385FF] focus-visible:underline"
-                >
-                  Criar grátis
-                </button>
-              </>
-            ) : (
-              <>Já tem conta?{" "}
-                <button
-                  onClick={() => { setMode("login"); setError(null); }}
-                  className="text-[#0066FF] hover:text-[#3385FF] focus-visible:underline"
-                >
-                  Entrar
-                </button>
-              </>
-            )}
+          {/* Divisor */}
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-xs text-muted-foreground">ou continue com SSO</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+
+          {/* SSO */}
+          <button
+            type="button"
+            className="w-full h-10 rounded-lg border border-border bg-secondary text-secondary-foreground text-sm font-medium flex items-center justify-center gap-2 hover:bg-accent transition-all duration-150 active:scale-[0.98]"
+          >
+            <svg viewBox="0 0 24 24" className="size-4" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M12.545 10.239v3.821h5.445c-.712 2.315-2.647 3.972-5.445 3.972a6.033 6.033 0 1 1 0-12.064c1.498 0 2.866.549 3.921 1.453l2.814-2.814A9.969 9.969 0 0 0 12.545 2C7.021 2 2.543 6.477 2.543 12s4.478 10 10.002 10c8.396 0 10.249-7.85 9.426-11.748z"
+              />
+            </svg>
+            Entrar com Google
+          </button>
+
+          <p className="text-xs text-center text-muted-foreground">
+            Não tem uma conta?{" "}
+            <button type="button" className="text-primary hover:underline transition-all duration-150">
+              Fale com o time de vendas
+            </button>
           </p>
         </div>
-      </div>
-    </div>
-  );
+      </section>
+    </main>
+  )
 }

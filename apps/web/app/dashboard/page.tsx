@@ -1,447 +1,224 @@
-"use client";
+"use client"
 
-import { useEffect, useState, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "../../src/hooks/useAuth";
-import { createClient } from "../../src/lib/supabase";
-import type {
-  DashboardSummary,
-  CloudAccount,
-  Recommendation,
-  CostTrendPoint,
-  Anomaly,
-} from "@repo/types";
-import { KpiCard } from "../../src/components/dashboard/KpiCard";
-import { CostTrendChart } from "../../src/components/dashboard/CostTrendChart";
-import { ProviderBreakdown } from "../../src/components/dashboard/ProviderBreakdown";
-import { AnomalyList } from "../../src/components/dashboard/AnomalyList";
-import { RecommendationsCritical } from "../../src/components/dashboard/RecommendationsCritical";
-import { AddAccountModal } from "../../src/components/dashboard/AddAccountModal";
-import {
-  SkeletonKpiGrid,
-  SkeletonChart,
-  SkeletonList,
-} from "../../src/components/ui/Skeleton";
+import { useState } from "react"
+import { DollarSign, Zap, Cloud, TrendingDown, Bell, RefreshCw } from "lucide-react"
+import { Sidebar } from "@/components/dashboard/Sidebar"
+import { KpiCard } from "@/components/dashboard/KpiCard"
+import { CostTrendChart } from "@/components/dashboard/CostTrendChart"
+import { ProviderBreakdown } from "@/components/dashboard/ProviderBreakdown"
+import { AnomalyList } from "@/components/dashboard/AnomalyList"
+import { RecommendationsCritical } from "@/components/dashboard/RecommendationsCritical"
+import { AddAccountModal } from "@/components/dashboard/AddAccountModal"
 
-const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
-const TIMEOUT_MS = 15_000;
+/* ─── Mock data ─────────────────────────────────────── */
+const spark = (seed: number[]) => seed.map((v) => ({ v }))
 
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T | null> {
-  const sb = createClient();
-  const { data: { session } } = await sb.auth.getSession();
-  const token = session?.access_token;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  try {
-    const res = await fetch(`${API_URL}${path}`, {
-      ...options,
-      signal: controller.signal,
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...options?.headers,
-      },
-    });
-    const json = await res.json() as { data: T | null; error: { message: string } | null };
-    if (json.error || !res.ok) return null;
-    return json.data;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
+const KPI_DATA = [
+  {
+    label: "Custo Total do Mês",
+    value: "R$ 4.218.340",
+    delta: 12,
+    icon: DollarSign,
+    colorClass: "text-chart-1",
+    sparkline: spark([320, 380, 350, 410, 390, 430, 470, 490, 510, 480]),
+  },
+  {
+    label: "Anomalias Ativas",
+    value: "23",
+    delta: 8,
+    icon: Zap,
+    colorClass: "text-warning",
+    sparkline: spark([5, 8, 6, 12, 9, 15, 18, 21, 20, 23]),
+  },
+  {
+    label: "Contas Conectadas",
+    value: "12",
+    delta: 0,
+    icon: Cloud,
+    colorClass: "text-chart-2",
+    sparkline: spark([10, 10, 10, 10, 11, 11, 12, 12, 12, 12]),
+  },
+  {
+    label: "Economia Identificada",
+    value: "R$ 381.200",
+    delta: -5,
+    icon: TrendingDown,
+    colorClass: "text-success",
+    sparkline: spark([400, 420, 410, 390, 405, 395, 380, 390, 385, 381]),
+  },
+]
+
+const TREND_DATA = [
+  { month: "Jan", aws: 120000, gcp: 45000, azure: 30000 },
+  { month: "Fev", aws: 138000, gcp: 48000, azure: 35000 },
+  { month: "Mar", aws: 125000, gcp: 52000, azure: 28000 },
+  { month: "Abr", aws: 160000, gcp: 55000, azure: 42000 },
+  { month: "Mai", aws: 175000, gcp: 60000, azure: 48000 },
+  { month: "Jun", aws: 190000, gcp: 65000, azure: 52000 },
+]
+
+const PROVIDERS = [
+  { name: "Amazon Web Services",   amount: 2_340_000, pct: 55, color: "text-chart-1", bar: "bg-chart-1" },
+  { name: "Google Cloud Platform", amount: 1_100_000, pct: 26, color: "text-chart-2", bar: "bg-chart-2" },
+  { name: "Microsoft Azure",       amount:   778_340, pct: 19, color: "text-chart-3", bar: "bg-chart-3" },
+]
+
+const ANOMALIES = [
+  { id: "a1", title: "Pico de egress na região us-east-1", provider: "AWS",   service: "EC2",         delta: 340, severity: "critical" as const, time: "há 12 min"  },
+  { id: "a2", title: "BigQuery jobs acima do budget",      provider: "GCP",   service: "BigQuery",    delta: 87,  severity: "high"     as const, time: "há 1 h"     },
+  { id: "a3", title: "Azure Functions com CPU elevada",    provider: "Azure", service: "Functions",   delta: 52,  severity: "medium"   as const, time: "há 3 h"     },
+  { id: "a4", title: "S3 requests inesperados",            provider: "AWS",   service: "S3",          delta: 210, severity: "high"     as const, time: "há 4 h"     },
+]
+
+const RECOMMENDATIONS = [
+  {
+    id: "r1",
+    title: "Migrar instâncias para Graviton3",
+    description: "56 instâncias EC2 x86 elegíveis para migração para ARM. Redução de custo de até 30% com performance superior.",
+    saving: "R$ 85.000/mês",
+    provider: "AWS",
+    priority: "critical" as const,
+  },
+  {
+    id: "r2",
+    title: "Redimensionar VMs subutilizadas",
+    description: "12 VMs no Azure com uso médio de CPU < 5%. Downgrade de SKU pode ser feito sem impacto em produção.",
+    saving: "R$ 22.400/mês",
+    provider: "Azure",
+    priority: "high" as const,
+  },
+  {
+    id: "r3",
+    title: "Reservar capacidade GKE",
+    description: "Cluster GKE com carga previsível nos últimos 90 dias. Comprometimento de 1 ano pode gerar economia significativa.",
+    saving: "R$ 41.600/mês",
+    provider: "GCP",
+    priority: "high" as const,
+  },
+]
+
+/* ─── Toast ─────────────────────────────────────────── */
+interface ToastMsg { id: number; text: string }
+
+/* ─── Page ───────────────────────────────────────────── */
+export default function DashboardPage() {
+  const [modalOpen, setModalOpen] = useState(false)
+  const [toasts, setToasts] = useState<ToastMsg[]>([])
+  const [refreshing, setRefreshing] = useState(false)
+
+  function addToast(text: string) {
+    const id = Date.now()
+    setToasts((t) => [...t.slice(-3), { id, text }])
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4000)
   }
-}
 
-// ─── Nav items (role-aware) ───────────────────────────────────────────────────
+  async function handleRefresh() {
+    setRefreshing(true)
+    await new Promise((r) => setTimeout(r, 1000))
+    setRefreshing(false)
+    addToast("Dados atualizados com sucesso.")
+  }
 
-type Tab = "overview" | "accounts" | "recs";
-
-const NAV_ITEMS: { id: Tab; label: string; roles?: string[] }[] = [
-  { id: "overview",  label: "Visão Geral" },
-  { id: "accounts",  label: "Contas" },
-  { id: "recs",      label: "Recomendações" },
-];
-
-// ─── Skeleton Dashboard ───────────────────────────────────────────────────────
-
-function DashboardSkeleton() {
   return (
-    <div className="space-y-8" aria-busy="true" aria-label="Carregando dashboard">
-      <SkeletonKpiGrid />
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2"><SkeletonChart /></div>
-        <SkeletonChart />
+    <div className="flex min-h-screen bg-background">
+      <Sidebar onAddAccount={() => setModalOpen(true)} />
+
+      {/* Main content */}
+      <div className="flex-1 ml-60 flex flex-col min-h-screen">
+        {/* Top bar */}
+        <header className="sticky top-0 z-20 flex items-center justify-between h-14 px-6 bg-background/80 backdrop-blur-md border-b border-border shrink-0">
+          <div>
+            <h1 className="text-sm font-semibold text-foreground">Visão Geral</h1>
+            <p className="text-[11px] text-muted-foreground">
+              Dashboard / Visão Geral
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleRefresh}
+              aria-label="Atualizar dados"
+              className="size-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
+            >
+              <RefreshCw
+                className={`size-4 ${refreshing ? "animate-spin" : ""}`}
+              />
+            </button>
+            <button
+              aria-label="Notificações"
+              className="relative size-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
+            >
+              <Bell className="size-4" />
+              <span
+                aria-hidden="true"
+                className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-danger"
+              />
+            </button>
+            <div className="h-5 w-px bg-border mx-1" />
+            <div className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-accent transition-colors duration-150 cursor-pointer">
+              <div className="size-6 rounded-full bg-primary/20 flex items-center justify-center">
+                <span className="text-[10px] font-semibold text-primary">JD</span>
+              </div>
+              <span className="text-xs font-medium text-foreground">João Dinis</span>
+            </div>
+          </div>
+        </header>
+
+        {/* Content */}
+        <main className="flex-1 px-6 py-6 max-w-[1280px] w-full mx-auto space-y-6">
+          {/* KPI Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            {KPI_DATA.map((kpi, i) => (
+              <KpiCard key={kpi.label} {...kpi} index={i} />
+            ))}
+          </div>
+
+          {/* Trend + Provider */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2">
+              <CostTrendChart data={TREND_DATA} />
+            </div>
+            <ProviderBreakdown items={PROVIDERS} total="R$ 4,21 M" />
+          </div>
+
+          {/* Anomalies + Recommendations */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <AnomalyList
+              anomalies={ANOMALIES}
+              onViewAll={() => addToast("Navegando para Anomalias...")}
+            />
+            <RecommendationsCritical
+              recommendations={RECOMMENDATIONS}
+              onViewAll={() => addToast("Navegando para Recomendações...")}
+            />
+          </div>
+        </main>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <SkeletonList rows={3} />
-        <SkeletonList rows={5} />
-      </div>
-    </div>
-  );
-}
 
-// ─── Empty State ──────────────────────────────────────────────────────────────
-
-function EmptyState({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
-  return (
-    <div className="rounded-xl border border-[#2A2D3E] bg-[#1A1D27]/80 p-16 text-center">
-      <p className="text-5xl mb-4">☁️</p>
-      <h2 className="text-lg font-semibold text-[#E5E7EB] mb-2">Conecte sua primeira conta cloud</h2>
-      <p className="text-sm text-[#9CA3AF] max-w-xs mx-auto mb-6">
-        Adicione uma conta AWS, GCP ou Azure para começar a monitorar e otimizar seus custos com IA.
-      </p>
-      <button
-        onClick={() => onNavigate("accounts")}
-        className="px-6 py-3 rounded-xl bg-[#0066FF] text-white font-medium text-sm
-                   hover:bg-[#0052CC] focus-visible:ring-2 focus-visible:ring-[#0066FF] focus-visible:ring-offset-2
-                   focus-visible:ring-offset-[#0F1117] transition-colors min-h-[48px]"
-      >
-        Adicionar Conta
-      </button>
-    </div>
-  );
-}
-
-// ─── Accounts Tab ─────────────────────────────────────────────────────────────
-
-const STATUS_BADGE: Record<string, string> = {
-  active:   "bg-[#00D4AA]/15 text-[#00D4AA]",
-  syncing:  "bg-[#0066FF]/15 text-[#0066FF]",
-  error:    "bg-[#FF4757]/15 text-[#FF4757]",
-  inactive: "bg-[#6B7280]/15 text-[#6B7280]",
-};
-
-const PROVIDER_LABEL: Record<string, string> = { aws: "AWS", gcp: "GCP", azure: "Azure" };
-
-function AccountsTab({
-  accounts,
-  onRefresh,
-  apiFetch,
-}: {
-  accounts: CloudAccount[];
-  onRefresh: () => void;
-  apiFetch: <T>(path: string, options?: RequestInit) => Promise<T | null>;
-}) {
-  const [modalOpen, setModalOpen] = useState(false);
-
-  return (
-    <>
+      {/* Modal */}
       <AddAccountModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        onSuccess={onRefresh}
-        apiFetch={apiFetch}
+        onAdd={(provider, name) =>
+          addToast(`Conta "${name}" (${provider.toUpperCase()}) conectada!`)
+        }
       />
 
-      <div className="space-y-4">
-        {/* Header row */}
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-[#9CA3AF]">
-            {accounts.length === 0 ? "Nenhuma conta conectada" : `${accounts.length} conta${accounts.length !== 1 ? "s" : ""} conectada${accounts.length !== 1 ? "s" : ""}`}
-          </p>
-          <div className="flex gap-2">
-            {accounts.length > 0 && (
-              <button
-                onClick={onRefresh}
-                className="text-xs px-3 py-2 rounded-lg bg-[#1A1D27] border border-[#2A2D3E]
-                           text-[#9CA3AF] hover:text-[#E5E7EB] focus-visible:ring-2 focus-visible:ring-[#0066FF]
-                           transition-colors min-h-[44px]"
-              >
-                Atualizar
-              </button>
-            )}
-            <button
-              onClick={() => setModalOpen(true)}
-              className="text-sm px-4 py-2 rounded-xl bg-[#0066FF] text-white font-medium
-                         hover:bg-[#0052CC] focus-visible:ring-2 focus-visible:ring-[#0066FF]
-                         focus-visible:ring-offset-2 focus-visible:ring-offset-[#0F1117]
-                         transition-colors min-h-[44px]"
-            >
-              + Adicionar conta
-            </button>
-          </div>
-        </div>
-
-        {/* Empty state */}
-        {accounts.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-[#2A2D3E] bg-[#1A1D27]/50 p-16 text-center">
-            <p className="text-4xl mb-4">🔌</p>
-            <p className="text-sm font-medium text-[#E5E7EB] mb-1">Nenhuma conta cloud conectada</p>
-            <p className="text-xs text-[#6B7280] mb-6">Conecte AWS, GCP ou Azure para começar a monitorar custos</p>
-            <button
-              onClick={() => setModalOpen(true)}
-              className="px-6 py-3 rounded-xl bg-[#0066FF] text-white font-medium text-sm
-                         hover:bg-[#0052CC] focus-visible:ring-2 focus-visible:ring-[#0066FF]
-                         focus-visible:ring-offset-2 focus-visible:ring-offset-[#0F1117]
-                         transition-colors min-h-[48px]"
-            >
-              Conectar primeira conta
-            </button>
-          </div>
-        ) : (
-          /* Account list */
-          <div className="space-y-3">
-            {accounts.map((a) => (
-              <div key={a.id} className="rounded-xl border border-[#2A2D3E] bg-[#1A1D27]/80 p-4 hover:bg-[#222535] transition-colors">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-[#E5E7EB]">{a.account_name}</p>
-                    <p className="text-xs text-[#6B7280] mt-0.5">{PROVIDER_LABEL[a.provider]} · {a.account_id}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {a.monthly_cost_usd != null && (
-                      <span className="text-sm font-bold text-[#E5E7EB]">
-                        ${a.monthly_cost_usd.toFixed(0)}/mês
-                      </span>
-                    )}
-                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${STATUS_BADGE[a.status] ?? ""}`}>
-                      {a.status}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </>
-  );
-}
-
-// ─── Main Dashboard ───────────────────────────────────────────────────────────
-
-export default function DashboardPage() {
-  const router = useRouter();
-  const { user, loading: authLoading, signOut } = useAuth();
-
-  const [summary, setSummary]   = useState<DashboardSummary | null>(null);
-  const [accounts, setAccounts] = useState<CloudAccount[]>([]);
-  const [recs, setRecs]         = useState<Recommendation[]>([]);
-  const [trends, setTrends]     = useState<CostTrendPoint[]>([]);
-  const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
-  const [dataLoading, setDataLoading] = useState(true);
-  const [fetchError, setFetchError]   = useState<string | null>(null);
-  const [activeTab, setActiveTab]     = useState<Tab>("overview");
-
-  const fetchAll = useCallback(async () => {
-    setDataLoading(true);
-    setFetchError(null);
-    const [s, a, r, t, an] = await Promise.all([
-      apiFetch<DashboardSummary>("/api/dashboard/summary"),
-      apiFetch<CloudAccount[]>("/api/accounts"),
-      apiFetch<Recommendation[]>("/api/recommendations"),
-      apiFetch<CostTrendPoint[]>("/api/dashboard/cost-trends"),
-      apiFetch<Anomaly[]>("/api/dashboard/anomalies"),
-    ]);
-    if (s) setSummary(s);
-    if (a) setAccounts(a);
-    if (r) setRecs(r);
-    if (t) setTrends(t);
-    if (an) setAnomalies(an);
-    if (!s && !a && !r) setFetchError("Serviço indisponível. A API pode estar iniciando (aguarde 30s).");
-    setDataLoading(false);
-  }, []);
-
-  useEffect(() => {
-    if (!authLoading && !user) { router.push("/"); return; }
-    if (user) void fetchAll();
-  }, [user, authLoading, router, fetchAll]);
-
-  const updatingRef = useRef(new Set<string>());
-
-  async function updateRecStatus(id: string, status: Recommendation["status"]) {
-    if (updatingRef.current.has(id)) return;
-    updatingRef.current.add(id);
-    try {
-      const updated = await apiFetch<Recommendation>(`/api/recommendations/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ status }),
-      });
-      if (updated) {
-        setRecs((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
-      }
-    } finally {
-      updatingRef.current.delete(id);
-    }
-  }
-
-  async function generateRecs() {
-    await apiFetch("/api/recommendations/generate", { method: "POST" });
-    void fetchAll();
-  }
-
-  // TODO: pull from profile — cast prevents TS from narrowing to literal
-  const userRole = ("owner" as string) as "owner" | "admin" | "member";
-
-  const hasAccounts = accounts.length > 0;
-
-  return (
-    <div className="min-h-screen text-[#E5E7EB]" style={{ backgroundColor: "#0F1117" }}>
-      {/* ── Header ── */}
-      <header
-        className="border-b border-[#2A2D3E] sticky top-0 z-20"
-        style={{ backgroundColor: "rgba(15,17,23,0.85)", backdropFilter: "blur(12px)" }}
+      {/* Toasts */}
+      <div
+        aria-live="polite"
+        aria-label="Notificações"
+        className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="OptiCloud AI" className="w-8 h-8 object-contain" />
-            <span className="text-base font-semibold tracking-tight text-[#F1F3F5]">OptiCloud AI</span>
-            {userRole !== "member" && (
-              <span className="hidden sm:block text-[10px] px-1.5 py-0.5 rounded-full bg-[#0066FF]/15 text-[#0066FF] font-medium">
-                {userRole}
-              </span>
-            )}
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            className="card-enter pointer-events-auto flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 shadow-lg text-sm text-foreground min-w-64"
+          >
+            <span className="size-2 rounded-full bg-success shrink-0" aria-hidden="true" />
+            {t.text}
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-[#6B7280] hidden sm:block">{user?.email}</span>
-            <button
-              onClick={() => { void signOut().then(() => router.push("/")); }}
-              className="text-sm text-[#9CA3AF] hover:text-[#E5E7EB] transition-colors
-                         px-3 py-2 min-h-[44px] rounded-lg focus-visible:ring-2 focus-visible:ring-[#0066FF]"
-            >
-              Sair
-            </button>
-          </div>
-        </div>
-
-        {/* ── Tab Nav ── */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-0 flex gap-1">
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors min-h-[44px]
-                         focus-visible:ring-2 focus-visible:ring-[#0066FF] focus-visible:ring-inset
-                         ${activeTab === item.id
-                           ? "text-[#0066FF] border-b-2 border-[#0066FF] bg-[#0066FF]/5"
-                           : "text-[#6B7280] hover:text-[#9CA3AF]"}`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        {/* ── Error Banner ── */}
-        {fetchError && (
-          <div className="mb-6 p-4 rounded-xl border border-[#FFB800]/30 bg-[#FFB800]/10 text-[#FFB800] text-sm flex items-start gap-3">
-            <span className="shrink-0">⚠</span>
-            <div>
-              <p className="font-medium">Serviço temporariamente indisponível</p>
-              <p className="text-[#FFB800]/80 text-xs mt-0.5">{fetchError}</p>
-              <button
-                onClick={() => void fetchAll()}
-                className="mt-2 text-xs underline focus-visible:ring-1 focus-visible:ring-[#FFB800] rounded"
-              >
-                Tentar novamente
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ── Overview Tab ── */}
-        {activeTab === "overview" && (
-          <>
-            {authLoading || dataLoading ? (
-              <DashboardSkeleton />
-            ) : !hasAccounts ? (
-              <EmptyState onNavigate={setActiveTab} />
-            ) : (
-              <div className="space-y-8">
-
-                {/* ── TIER 1: KPIs ── */}
-                <section aria-label="KPIs críticos">
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <KpiCard
-                      label="Custo Total Mensal"
-                      value={`$${(summary?.total_monthly_cost_usd ?? 0).toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
-                      sub={`${summary?.total_accounts ?? 0} conta${(summary?.total_accounts ?? 0) !== 1 ? "s" : ""}`}
-                      icon="💳"
-                      accent="default"
-                    />
-                    <KpiCard
-                      label="Economia Potencial"
-                      value={`$${(summary?.potential_savings_usd ?? 0).toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
-                      sub="em recomendações pendentes"
-                      icon="💡"
-                      accent="success"
-                    />
-                    <KpiCard
-                      label="Alertas Críticos"
-                      value={String(summary?.critical_alerts ?? 0)}
-                      sub="anomalias ativas"
-                      icon="🚨"
-                      accent={summary?.critical_alerts ? "danger" : "default"}
-                    />
-                    <KpiCard
-                      label="Economia Implementada"
-                      value={`$${(summary?.implemented_savings_usd ?? 0).toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
-                      sub="acumulado no mês"
-                      icon="✅"
-                      accent="success"
-                    />
-                  </div>
-                </section>
-
-                {/* ── TIER 2: Gráficos ── */}
-                <section aria-label="Análise de custos" className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <div className="lg:col-span-2">
-                    <CostTrendChart data={trends} loading={false} />
-                  </div>
-                  <ProviderBreakdown
-                    data={summary?.cost_by_provider ?? { aws: 0, gcp: 0, azure: 0 }}
-                    loading={false}
-                  />
-                </section>
-
-                {/* ── TIER 3: Anomalias + Recomendações ── */}
-                <section aria-label="Anomalias e recomendações" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <AnomalyList anomalies={anomalies} loading={false} />
-                  <RecommendationsCritical
-                    recs={recs}
-                    loading={false}
-                    onUpdateStatus={updateRecStatus}
-                  />
-                </section>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* ── Accounts Tab ── */}
-        {activeTab === "accounts" && (
-          (authLoading || dataLoading)
-            ? <div className="space-y-3"><SkeletonList rows={3} /></div>
-            : <AccountsTab accounts={accounts} onRefresh={fetchAll} apiFetch={apiFetch} />
-        )}
-
-        {/* ── Recs Tab ── */}
-        {activeTab === "recs" && (
-          (authLoading || dataLoading)
-            ? <SkeletonList rows={6} />
-            : (
-              <div className="space-y-4">
-                <div className="flex justify-end">
-                  <button
-                    onClick={() => void generateRecs()}
-                    className="px-4 py-2.5 rounded-xl bg-[#0066FF] text-white text-sm font-medium
-                               hover:bg-[#0052CC] focus-visible:ring-2 focus-visible:ring-[#0066FF]
-                               focus-visible:ring-offset-2 focus-visible:ring-offset-[#0F1117]
-                               transition-colors min-h-[44px]"
-                  >
-                    Gerar Recomendações
-                  </button>
-                </div>
-                <RecommendationsCritical
-                  recs={recs}
-                  loading={false}
-                  onUpdateStatus={updateRecStatus}
-                />
-              </div>
-            )
-        )}
-      </main>
+        ))}
+      </div>
     </div>
-  );
+  )
 }
