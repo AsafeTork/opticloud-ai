@@ -1,159 +1,95 @@
-# Turborepo starter
+# OptiCloud AI
 
-This Turborepo starter is maintained by the Turborepo core team.
+Plataforma de otimização de custos de nuvem com inteligência artificial.
 
-## Using this example
+## Links de produção
 
-Run the following command:
+| Serviço | URL |
+|---|---|
+| Frontend | https://opticloud-web.onrender.com |
+| API | https://opticloud-api.onrender.com/health |
 
-```sh
-npx create-turbo@latest
+## Stack
+
+- **Monorepo**: TurboRepo 2.x + npm workspaces
+- **Frontend** (`apps/web`): Next.js 16 + React 19 + Tailwind CSS — export estático
+- **API** (`apps/api`): Fastify 5 + TypeScript ESM (NodeNext)
+- **Banco / Auth**: Supabase (PostgreSQL + GoTrue + RLS)
+- **Deploy**: Render (free tier) — auto-deploy via push no `main`
+
+## Estrutura
+
+```
+opticloud-ai/
+├── apps/
+│   ├── web/          # Next.js (static export → Render static_site)
+│   └── api/          # Fastify (Render web_service, porta 10000)
+├── packages/
+│   ├── types/        # Tipos compartilhados (exporta .ts direto)
+│   ├── typescript-config/  # tsconfig base/nextjs
+│   └── ui/           # Componentes React compartilhados
+└── supabase/
+    └── migrations/   # DDL aplicado via supabase db push
 ```
 
-## What's inside?
+## Banco de dados (Supabase)
 
-This Turborepo includes the following packages/apps:
+Tabelas principais: `organizations`, `profiles`, `cloud_accounts`, `metrics`, `recommendations`
 
-### Apps and Packages
+- RLS habilitado em todas as tabelas
+- `handle_new_user()` trigger cria org + profile automáticamente no signup
+- `my_org_id()` helper para políticas de isolamento por organização
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+## Desenvolvimento local
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+```bash
+# instalar dependências
+npm install
 
-### Utilities
+# copiar variáveis de ambiente
+cp .env.example .env
+# preencher SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, etc.
 
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo build
-npm dlx turbo build
-npm exec turbo build
-```
-
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo build --filter=docs
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo build --filter=docs
-npm exec turbo build --filter=docs
-npm exec turbo build --filter=docs
-```
-
-### Develop
-
-To develop all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo dev
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
+# rodar tudo junto
 npx turbo dev
-npm exec turbo dev
-npm exec turbo dev
+
+# ou separado
+npx turbo dev --filter=web   # http://localhost:3000
+npx turbo dev --filter=api   # http://localhost:3001
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+## Build
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
+```bash
+npx turbo build              # todos os apps
+npx turbo build --filter=api # só a API
+npx turbo build --filter=web # só o frontend
 ```
 
-Without global `turbo`:
+## Testes
 
-```sh
-npx turbo dev --filter=web
-npm exec turbo dev --filter=web
-npm exec turbo dev --filter=web
+```bash
+cd apps/api && npm test      # Vitest (10 testes, services/recommendations)
 ```
 
-### Remote Caching
+## Deploy
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+Push no branch `main` dispara auto-deploy no Render para ambos os serviços.
 
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
+Variáveis de ambiente necessárias no Render (já configuradas):
 
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
+| Variável | Serviço |
+|---|---|
+| `SUPABASE_URL` | API |
+| `SUPABASE_SERVICE_ROLE_KEY` | API |
+| `API_CORS_ORIGIN` | API |
+| `NEXT_PUBLIC_SUPABASE_URL` | Web |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Web |
+| `NEXT_PUBLIC_API_URL` | Web |
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+## Decisões técnicas relevantes
 
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-npm exec turbo login
-npm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-npm exec turbo link
-npm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+- **`output: 'export'` no Next.js**: variáveis `NEXT_PUBLIC_*` são injetadas em build time, não em runtime. Precisam estar definidas no Render antes do build.
+- **`SET search_path = public`** na função `handle_new_user()`: obrigatório porque `supabase_auth_admin` usa `search_path = auth` na sessão — sem isso o trigger falha silenciosamente com 500 no signup.
+- **`packageManager: "npm@10.9.0"`** no root package.json: exigido pelo Turbo 2.x para detectar o gerenciador de workspaces.
+- **`npm install --include=dev`** no build command do Render: `NODE_ENV=production` pula devDependencies; turbo e typescript estão em devDeps.
