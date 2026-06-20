@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { DollarSign, Zap, Cloud, TrendingDown, Bell, RefreshCw } from "lucide-react"
+import { DollarSign, Zap, Cloud, TrendingDown, Bell, RefreshCw, Menu } from "lucide-react"
 import { Sidebar } from "@/components/dashboard/Sidebar"
 import { KpiCard } from "@/components/dashboard/KpiCard"
 import { CostTrendChart } from "@/components/dashboard/CostTrendChart"
@@ -71,9 +71,10 @@ export default function DashboardPage() {
   const [recommendations, setRecommendations] = useState<ReturnType<typeof mapRecommendation>[]>([])
   const [dataLoading, setDataLoading] = useState(true)
 
-  const [modalOpen, setModalOpen] = useState(false)
-  const [toasts, setToasts] = useState<ToastMsg[]>([])
-  const [refreshing, setRefreshing] = useState(false)
+  const [modalOpen, setModalOpen]     = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [toasts, setToasts]           = useState<ToastMsg[]>([])
+  const [refreshing, setRefreshing]   = useState(false)
 
   useEffect(() => {
     if (!authLoading && !user) router.push("/")
@@ -165,15 +166,28 @@ export default function DashboardPage() {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar onAddAccount={() => setModalOpen(true)} />
+      <Sidebar
+        onAddAccount={() => setModalOpen(true)}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
 
-      <div className="flex-1 ml-60 flex flex-col min-h-screen">
-        <header className="sticky top-0 z-20 flex items-center justify-between h-14 px-6 bg-background/80 backdrop-blur-md border-b border-border shrink-0">
-          <div>
-            <h1 className="text-sm font-semibold text-foreground">Visão Geral</h1>
-            <p className="text-[11px] text-muted-foreground">Dashboard / Visão Geral</p>
+      <div className="flex-1 lg:ml-64 flex flex-col min-h-screen min-w-0">
+        <header className="sticky top-0 z-20 flex items-center justify-between h-14 px-4 sm:px-6 bg-background/80 backdrop-blur-md border-b border-border shrink-0">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Abrir menu"
+              className="lg:hidden size-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
+            >
+              <Menu className="size-5" />
+            </button>
+            <div>
+              <h1 className="text-sm font-semibold text-foreground">Visão Geral</h1>
+              <p className="text-[11px] text-muted-foreground hidden sm:block">Dashboard / Visão Geral</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={handleRefresh}
               aria-label="Atualizar dados"
@@ -190,19 +204,18 @@ export default function DashboardPage() {
                 <span aria-hidden="true" className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-danger" />
               )}
             </button>
-            <div className="h-5 w-px bg-border mx-1" />
-            <div className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-accent transition-colors duration-150 cursor-pointer">
-              <div className="size-6 rounded-full bg-primary/20 flex items-center justify-center">
+            <div className="hidden sm:flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-accent transition-colors duration-150 cursor-pointer">
+              <div className="size-6 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
                 <span className="text-[10px] font-semibold text-primary">
                   {user?.email?.slice(0, 2).toUpperCase() ?? "??"}
                 </span>
               </div>
-              <span className="text-xs font-medium text-foreground truncate max-w-32">{user?.email ?? ""}</span>
+              <span className="text-xs font-medium text-foreground truncate max-w-28">{user?.email ?? ""}</span>
             </div>
           </div>
         </header>
 
-        <main className="flex-1 px-6 py-6 max-w-[1280px] w-full mx-auto space-y-6">
+        <main className="flex-1 px-4 sm:px-6 py-4 sm:py-6 max-w-[1280px] w-full mx-auto space-y-6">
           {dataLoading ? (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
