@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <polygon points="480,256 368,62 144,62 32,256 144,450 368,450" fill="#4A7DC8"/>
-  <path
-    d="M270.9,140.6 C261.4,92.3 219.0,56 168,56 C127.5,56 92.4,79.0 74.9,112.6 C32.8,117.0 0,152.7 0,196 C0,242.3 37.7,280 84,280 L266,280 C306.6,280 336,249.4 336,210 C336,173.0 291.3,143.1 270.9,140.6 Z"
-    fill="#4A7DC8" stroke="white" stroke-width="22" stroke-linejoin="round" stroke-linecap="round"
-    transform="translate(88,92)" paint-order="stroke fill"/>
-  <polygon points="256,196 302,242 256,288 210,242" fill="white"/>
-</svg>
