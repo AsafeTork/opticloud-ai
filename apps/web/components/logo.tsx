@@ -5,36 +5,29 @@ interface LogoMarkProps {
   size?: number
 }
 
-/**
- * Marca OptiCloud AI
- * Dois losangos concêntricos — externo com bordas arredondadas,
- * interno menor rotacionado 45°. Glifo único, fechado, coeso.
- * Funciona em qualquer fundo sem depender de variáveis de cor.
- */
 export function LogoMark({ className, size = 32 }: LogoMarkProps) {
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 32 32"
+      viewBox="0 0 512 512"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
       className={className}
     >
-      {/* Losango externo — stroke arredondado */}
+      <polygon points="480,256 368,62 144,62 32,256 144,450 368,450" fill="currentColor" />
       <path
-        d="M16 3 L29 16 L16 29 L3 16 Z"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinejoin="round"
-        fill="none"
-      />
-      {/* Losango interno menor — preenchido */}
-      <path
-        d="M16 11 L21 16 L16 21 L11 16 Z"
+        d="M270.9,140.6 C261.4,92.3 219.0,56 168,56 C127.5,56 92.4,79.0 74.9,112.6 C32.8,117.0 0,152.7 0,196 C0,242.3 37.7,280 84,280 L266,280 C306.6,280 336,249.4 336,210 C336,173.0 291.3,143.1 270.9,140.6 Z"
         fill="currentColor"
+        stroke="white"
+        strokeWidth="22"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        transform="translate(88,92)"
+        style={{ paintOrder: "stroke fill" }}
       />
+      <polygon points="256,196 302,242 256,288 210,242" fill="white" />
     </svg>
   )
 }
@@ -54,16 +47,10 @@ export function Logo({
 }: LogoProps) {
   return (
     <div className={cn("flex items-center gap-2.5 select-none", className)}>
-      <div
-        className="flex items-center justify-center rounded-lg bg-primary shrink-0"
-        style={{ width: iconSize, height: iconSize }}
-      >
-        <LogoMark
-          size={Math.round(iconSize * 0.68)}
-          className="text-primary-foreground"
-        />
-      </div>
-
+      <LogoMark
+        size={iconSize}
+        className="text-primary shrink-0"
+      />
       {showText && (
         <span
           className={cn(
