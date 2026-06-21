@@ -83,7 +83,7 @@ export function Sidebar({ onAddAccount, isOpen = false, onClose }: SidebarProps)
 
       <aside
         className={cn(
-          "flex flex-col w-64 shrink-0 h-screen bg-sidebar border-r border-sidebar-border fixed left-0 top-0 z-40",
+          "flex flex-col w-64 shrink-0 h-[100dvh] bg-sidebar border-r border-sidebar-border fixed left-0 top-0 z-40",
           "transition-transform duration-300 ease-in-out",
           "lg:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"

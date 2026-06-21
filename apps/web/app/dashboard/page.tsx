@@ -165,7 +165,7 @@ export default function DashboardPage() {
   if (authLoading) return null
 
   return (
-    <div className="flex min-h-screen bg-background overflow-x-hidden">
+    <div className="flex min-h-[100dvh] bg-background overflow-x-hidden">
       <Sidebar
         onAddAccount={() => setModalOpen(true)}
         isOpen={sidebarOpen}
