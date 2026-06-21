@@ -76,7 +76,7 @@ export default function BudgetsPage() {
   const [formPeriod, setFormPeriod] = useState<BudgetPeriod>("monthly")
 
   useEffect(() => {
-    if (!authLoading && !user) router.push("/")
+    if (!authLoading && !user) router.push("/login")
   }, [authLoading, user, router])
 
   useEffect(() => {

@@ -68,7 +68,7 @@ export function Sidebar({ onAddAccount, isOpen = false, onClose, onCriticalAlert
 
   async function handleLogout() {
     await signOut()
-    router.push("/")
+    router.push("/login")
   }
 
   const initials    = (user?.email ?? "??").slice(0, 2).toUpperCase()

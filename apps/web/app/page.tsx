@@ -1,302 +1,169 @@
-"use client"
-
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Eye, EyeOff, Cloud, Zap, Shield, BarChart3 } from "lucide-react"
+import Link from "next/link"
 import { Logo } from "@/components/logo"
-import { createClient } from "@/lib/supabase"
+import { BarChart3, Zap, Sparkles, Cloud, Server, ArrowRight } from "lucide-react"
 
-export default function LoginPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [oauthLoading, setOauthLoading] = useState<"google" | "github" | null>(null)
-  const [error, setError] = useState("")
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError("")
-    if (!email || !password) {
-      setError("Preencha e-mail e senha.")
-      return
-    }
-    setLoading(true)
-    const sb = createClient()
-    const { error: authError } = await sb.auth.signInWithPassword({ email, password })
-    setLoading(false)
-    if (authError) {
-      setError(authError.message === "Invalid login credentials" ? "E-mail ou senha inválidos." : authError.message)
-      return
-    }
-    router.push("/dashboard")
-  }
-
-  async function handleOAuth(provider: "google" | "github") {
-    setError("")
-    setOauthLoading(provider)
-    const sb = createClient()
-    const { error: oauthError } = await sb.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}/dashboard`,
-      },
-    })
-    if (oauthError) {
-      setError(oauthError.message)
-      setOauthLoading(null)
-    }
-  }
-
+export default function LandingPage() {
   return (
-    <main className="min-h-[100dvh] bg-background flex">
-      {/* Painel esquerdo — visual */}
-      <aside className="hidden lg:flex flex-col justify-between w-[480px] shrink-0 bg-card border-r border-border p-10 relative overflow-hidden">
-        {/* Grid decorativo de fundo */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage:
-              "repeating-linear-gradient(0deg,oklch(1 0 0) 0,oklch(1 0 0) 1px,transparent 1px,transparent 40px),repeating-linear-gradient(90deg,oklch(1 0 0) 0,oklch(1 0 0) 1px,transparent 1px,transparent 40px)",
-          }}
-        />
-
-        {/* Logo */}
-        <div className="relative z-10">
-          <Logo iconSize={36} variant="default" />
+    <div className="min-h-[100dvh] bg-background flex flex-col">
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+          <Logo iconSize={28} variant="default" />
+          <nav className="flex items-center gap-2">
+            <Link
+              href="/login"
+              className="h-9 px-4 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
+            >
+              Entrar
+            </Link>
+            <Link
+              href="/login"
+              className="h-9 px-4 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 transition-all duration-150 flex items-center"
+            >
+              Começar grátis
+            </Link>
+          </nav>
         </div>
+      </header>
 
-        {/* Central — stats de demonstração */}
-        <div className="relative z-10 space-y-6">
-          <h2 className="text-2xl font-semibold text-foreground leading-snug text-balance">
-            Visibilidade total dos seus custos cloud em um só lugar.
-          </h2>
+      <main className="flex-1">
+        {/* Hero */}
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-20 pb-24 text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border bg-card text-xs text-muted-foreground mb-8">
+            <Sparkles className="size-3 text-primary" />
+            Powered by IA · GCP + Azure
+          </div>
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground tracking-tight text-balance mb-6 leading-tight">
+            Controle total dos seus{" "}
+            <span className="text-primary">custos em nuvem.</span>
+          </h1>
+          <p className="text-lg text-muted-foreground max-w-xl mx-auto mb-10 text-balance">
+            Monitore, detecte anomalias e receba recomendações de IA para reduzir
+            gastos em GCP e Azure — tudo em um único painel.
+          </p>
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <Link
+              href="/login"
+              className="h-11 px-6 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 active:scale-[0.98] transition-all duration-150 flex items-center gap-2"
+            >
+              Começar grátis
+              <ArrowRight className="size-4" />
+            </Link>
+            <Link
+              href="/login"
+              className="h-11 px-6 rounded-lg border border-border bg-card text-foreground text-sm font-medium hover:bg-accent transition-all duration-150"
+            >
+              Ver demonstração
+            </Link>
+          </div>
+        </section>
 
-          <div className="grid grid-cols-2 gap-3">
+        {/* Stats */}
+        <section className="border-y border-border bg-card/50">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
             {[
-              {
-                icon: BarChart3,
-                label: "Custo mensal monitorado",
-                value: "R$ 4,2 M",
-                color: "text-chart-1",
-                bg: "bg-[oklch(0.60_0.22_264/0.12)]",
-              },
-              {
-                icon: Zap,
-                label: "Anomalias detectadas",
-                value: "23 hoje",
-                color: "text-warning",
-                bg: "bg-[oklch(0.75_0.18_75/0.12)]",
-              },
-              {
-                icon: Shield,
-                label: "Contas conectadas",
-                value: "12 provedores",
-                color: "text-success",
-                bg: "bg-[oklch(0.68_0.18_145/0.12)]",
-              },
-              {
-                icon: Cloud,
-                label: "Economia identificada",
-                value: "R$ 380 K",
-                color: "text-chart-2",
-                bg: "bg-[oklch(0.72_0.15_194/0.12)]",
-              },
-            ].map(({ icon: Icon, label, value, color, bg }, i) => (
-              <div
-                key={label}
-                className="card-enter rounded-xl border border-border p-4 space-y-2 hover:border-[oklch(1_0_0/0.15)] transition-colors duration-150"
-                style={{ animationDelay: `${i * 50}ms` }}
-              >
-                <div className={`size-8 rounded-lg ${bg} flex items-center justify-center`}>
-                  <Icon className={`size-4 ${color}`} />
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">{label}</p>
-                <p className={`text-lg font-semibold ${color}`}>{value}</p>
+              { value: "R$ 4,2 M", label: "monitorados / mês" },
+              { value: "23",       label: "anomalias detectadas" },
+              { value: "R$ 380 K", label: "economia identificada" },
+              { value: "12",       label: "provedores conectados" },
+            ].map(({ value, label }) => (
+              <div key={label}>
+                <p className="text-2xl font-bold text-foreground">{value}</p>
+                <p className="text-xs text-muted-foreground mt-1">{label}</p>
               </div>
             ))}
           </div>
-        </div>
+        </section>
 
-        {/* Rodapé lateral */}
-        <p className="text-xs text-muted-foreground relative z-10">
-          © 2025 OptiCloud AI. Todos os direitos reservados.
-        </p>
-      </aside>
-
-      {/* Painel direito — formulário */}
-      <section className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-sm space-y-8">
-          {/* Cabeçalho mobile */}
-          <div className="lg:hidden mb-2">
-            <Logo iconSize={32} variant="default" />
-          </div>
-
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold text-foreground tracking-tight">
-              Entrar na sua conta
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Insira suas credenciais para continuar.
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-            {/* E-mail */}
-            <div className="space-y-1.5">
-              <label
-                htmlFor="email"
-                className="text-sm font-medium text-foreground"
+        {/* Features */}
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 py-20">
+          <h2 className="text-2xl font-semibold text-foreground text-center mb-12">
+            Tudo que você precisa para otimizar a nuvem
+          </h2>
+          <div className="grid sm:grid-cols-3 gap-6">
+            {[
+              {
+                icon: BarChart3,
+                color: "text-chart-1",
+                bg: "bg-[oklch(0.60_0.22_264/0.12)]",
+                title: "Visibilidade completa",
+                desc: "Painel unificado com todos os seus custos AWS, GCP e Azure em tempo real.",
+              },
+              {
+                icon: Zap,
+                color: "text-warning",
+                bg: "bg-[oklch(0.75_0.18_75/0.12)]",
+                title: "Detecção de anomalias",
+                desc: "IA identifica picos de gasto fora do padrão e alerta antes que se tornem problemas.",
+              },
+              {
+                icon: Sparkles,
+                color: "text-primary",
+                bg: "bg-[oklch(0.60_0.22_264/0.12)]",
+                title: "Recomendações IA",
+                desc: "Sugestões automáticas de rightsizing, reservas e eliminação de recursos ociosos.",
+              },
+            ].map(({ icon: Icon, color, bg, title, desc }) => (
+              <div
+                key={title}
+                className="rounded-xl border border-border bg-card p-6 space-y-4 hover:border-[oklch(1_0_0/0.12)] transition-colors duration-150"
               >
-                E-mail
-              </label>
-              <input
-                id="email"
-                type="email"
-                autoComplete="email"
-                placeholder="voce@empresa.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full h-10 rounded-lg border border-border bg-input px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-150"
-              />
-            </div>
-
-            {/* Senha */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label
-                  htmlFor="password"
-                  className="text-sm font-medium text-foreground"
-                >
-                  Senha
-                </label>
-                <button
-                  type="button"
-                  className="text-xs text-primary hover:underline transition-all duration-150"
-                >
-                  Esqueceu a senha?
-                </button>
+                <div className={`size-10 rounded-lg ${bg} flex items-center justify-center`}>
+                  <Icon className={`size-5 ${color}`} />
+                </div>
+                <h3 className="font-semibold text-foreground">{title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>
               </div>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full h-10 rounded-lg border border-border bg-input px-3 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-150"
-                />
-                <button
-                  type="button"
-                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-150"
-                >
-                  {showPassword ? (
-                    <EyeOff className="size-4" />
-                  ) : (
-                    <Eye className="size-4" />
-                  )}
-                </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Clouds */}
+        <section className="border-t border-border bg-card/30">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 text-center">
+            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-8">
+              Provedores suportados
+            </p>
+            <div className="flex items-center justify-center gap-10 flex-wrap">
+              <div className="flex items-center gap-2.5 text-muted-foreground">
+                <Cloud className="size-5" />
+                <span className="font-medium text-sm">Google Cloud</span>
+              </div>
+              <div className="flex items-center gap-2.5 text-muted-foreground">
+                <Server className="size-5" />
+                <span className="font-medium text-sm">Microsoft Azure</span>
               </div>
             </div>
-
-            {/* Erro */}
-            {error && (
-              <p role="alert" className="text-xs text-danger font-medium">
-                {error}
-              </p>
-            )}
-
-            {/* Botão entrar */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full h-10 rounded-lg bg-primary text-primary-foreground text-sm font-medium transition-all duration-150 hover:opacity-90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg
-                    className="size-4 animate-spin"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    aria-hidden="true"
-                  >
-                    <circle
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      strokeDasharray="31.4"
-                      strokeDashoffset="10"
-                    />
-                  </svg>
-                  Entrando…
-                </span>
-              ) : (
-                "Entrar"
-              )}
-            </button>
-          </form>
-
-          {/* Divisor */}
-          <div className="flex items-center gap-3">
-            <div className="h-px flex-1 bg-border" />
-            <span className="text-xs text-muted-foreground">ou continue com</span>
-            <div className="h-px flex-1 bg-border" />
           </div>
+        </section>
 
-          {/* SSO — Google + GitHub */}
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => handleOAuth("google")}
-              disabled={oauthLoading !== null}
-              className="h-10 rounded-lg border border-border bg-secondary text-secondary-foreground text-sm font-medium flex items-center justify-center gap-2 hover:bg-accent transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {oauthLoading === "google" ? (
-                <svg className="size-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="31.4" strokeDashoffset="10" />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" className="size-4" aria-hidden="true">
-                  <path fill="currentColor" d="M12.545 10.239v3.821h5.445c-.712 2.315-2.647 3.972-5.445 3.972a6.033 6.033 0 1 1 0-12.064c1.498 0 2.866.549 3.921 1.453l2.814-2.814A9.969 9.969 0 0 0 12.545 2C7.021 2 2.543 6.477 2.543 12s4.478 10 10.002 10c8.396 0 10.249-7.85 9.426-11.748z" />
-                </svg>
-              )}
-              Google
-            </button>
-            <button
-              type="button"
-              onClick={() => handleOAuth("github")}
-              disabled={oauthLoading !== null}
-              className="h-10 rounded-lg border border-border bg-secondary text-secondary-foreground text-sm font-medium flex items-center justify-center gap-2 hover:bg-accent transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {oauthLoading === "github" ? (
-                <svg className="size-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="31.4" strokeDashoffset="10" />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" className="size-4" aria-hidden="true">
-                  <path fill="currentColor" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z" />
-                </svg>
-              )}
-              GitHub
-            </button>
-          </div>
-
-          <p className="text-xs text-center text-muted-foreground">
-            Não tem uma conta?{" "}
-            <button type="button" className="text-primary hover:underline transition-all duration-150">
-              Fale com o time de vendas
-            </button>
+        {/* CTA */}
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 py-24 text-center">
+          <h2 className="text-3xl font-bold text-foreground mb-4 text-balance">
+            Pronto para reduzir seus custos?
+          </h2>
+          <p className="text-muted-foreground mb-8">
+            Crie sua conta gratuitamente e conecte sua primeira conta cloud em menos de 2 minutos.
           </p>
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-2 h-11 px-8 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 active:scale-[0.98] transition-all duration-150"
+          >
+            Começar grátis
+            <ArrowRight className="size-4" />
+          </Link>
+        </section>
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t border-border">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-12 flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">© 2025 OptiCloud AI. Todos os direitos reservados.</p>
+          <Link href="/login" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+            Entrar
+          </Link>
         </div>
-      </section>
-    </main>
+      </footer>
+    </div>
   )
 }

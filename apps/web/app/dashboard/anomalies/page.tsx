@@ -35,7 +35,7 @@ export default function AnomaliesPage() {
   const [filter, setFilter] = useState<Filter>("all")
 
   useEffect(() => {
-    if (!authLoading && !user) router.push("/")
+    if (!authLoading && !user) router.push("/login")
   }, [authLoading, user, router])
 
   useEffect(() => {

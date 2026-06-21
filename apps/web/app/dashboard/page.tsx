@@ -77,7 +77,7 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing]   = useState(false)
 
   useEffect(() => {
-    if (!authLoading && !user) router.push("/")
+    if (!authLoading && !user) router.push("/login")
   }, [authLoading, user, router])
 
   const loadData = useCallback(async () => {

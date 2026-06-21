@@ -29,7 +29,7 @@ export default function SettingsPage() {
   const [org, setOrg]         = useState<Organization | null>(null)
 
   useEffect(() => {
-    if (!authLoading && !user) router.push("/")
+    if (!authLoading && !user) router.push("/login")
   }, [authLoading, user, router])
 
   useEffect(() => {
@@ -52,7 +52,7 @@ export default function SettingsPage() {
 
   async function handleLogout() {
     await signOut()
-    router.push("/")
+    router.push("/login")
   }
 
   if (authLoading) return null
