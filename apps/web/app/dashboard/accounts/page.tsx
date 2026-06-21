@@ -38,6 +38,7 @@ export default function AccountsPage() {
 
   const [accounts, setAccounts] = useState<CloudAccount[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [toasts, setToasts] = useState<Toast[]>([])
 
@@ -47,8 +48,13 @@ export default function AccountsPage() {
 
   async function load() {
     setLoading(true)
+    setLoadError(false)
     const data = await apiFetch<CloudAccount[]>("/api/accounts/")
-    setAccounts(data ?? [])
+    if (data === null) {
+      setLoadError(true)
+    } else {
+      setAccounts(data)
+    }
     setLoading(false)
   }
 
@@ -91,6 +97,23 @@ export default function AccountsPage() {
         {loading ? (
           <div className="space-y-3">
             {[0, 1, 2].map((i) => <Skeleton key={i} className="h-[72px] rounded-xl" />)}
+          </div>
+        ) : loadError ? (
+          <div className="rounded-xl border border-danger/30 bg-danger/5 p-12 flex flex-col items-center gap-3 text-center">
+            <div className="size-12 rounded-full bg-danger/10 flex items-center justify-center">
+              <AlertCircle className="size-6 text-danger" />
+            </div>
+            <p className="text-sm font-medium text-foreground">Erro ao carregar contas</p>
+            <p className="text-xs text-muted-foreground max-w-52">
+              Verifique sua conexão e tente novamente.
+            </p>
+            <button
+              onClick={load}
+              className="mt-2 flex items-center gap-2 h-9 px-4 rounded-lg border border-border text-xs font-medium hover:bg-accent transition-all duration-150"
+            >
+              <RefreshCw className="size-3.5" />
+              Tentar novamente
+            </button>
           </div>
         ) : accounts.length === 0 ? (
           <div className="rounded-xl border border-border bg-card p-12 flex flex-col items-center gap-3 text-center card-enter">

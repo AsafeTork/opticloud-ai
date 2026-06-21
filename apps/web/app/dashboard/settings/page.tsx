@@ -40,8 +40,9 @@ export default function SettingsPage() {
     ]).then(([p, o]) => {
       if (p) setProfile(p)
       if (o) setOrg(o)
+      if (!p && !o) addToast("Não foi possível carregar as configurações. Tente novamente.")
     })
-  }, [user])
+  }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function addToast(text: string) {
     const id = Date.now()
