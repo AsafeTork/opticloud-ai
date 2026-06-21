@@ -1,12 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Bell, RefreshCw, Menu } from "lucide-react"
 import { Sidebar } from "./Sidebar"
 import { AddAccountModal } from "./AddAccountModal"
 import { useAuth } from "@/hooks/useAuth"
-import { apiFetch } from "@/lib/api"
-import type { DashboardSummary } from "@repo/types"
 
 interface DashboardShellProps {
   title: string
@@ -21,13 +19,6 @@ export function DashboardShell({ title, breadcrumb, children, onToast }: Dashboa
   const [refreshing, setRefreshing]   = useState(false)
   const [criticalAlerts, setCriticalAlerts] = useState(0)
   const { user } = useAuth()
-
-  useEffect(() => {
-    if (!user) return
-    apiFetch<DashboardSummary>("/api/dashboard/summary").then((s) => {
-      if (s) setCriticalAlerts(s.critical_alerts)
-    })
-  }, [user])
 
   async function handleRefresh() {
     setRefreshing(true)
@@ -45,6 +36,7 @@ export function DashboardShell({ title, breadcrumb, children, onToast }: Dashboa
         onAddAccount={() => setModalOpen(true)}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        onCriticalAlerts={setCriticalAlerts}
       />
 
       <div className="flex-1 lg:ml-64 flex flex-col min-w-0">

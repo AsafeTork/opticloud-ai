@@ -42,9 +42,10 @@ interface SidebarProps {
   onAddAccount: () => void
   isOpen?: boolean
   onClose?: () => void
+  onCriticalAlerts?: (n: number) => void
 }
 
-export function Sidebar({ onAddAccount, isOpen = false, onClose }: SidebarProps) {
+export function Sidebar({ onAddAccount, isOpen = false, onClose, onCriticalAlerts }: SidebarProps) {
   const pathname = usePathname()
   const router   = useRouter()
   const { user, signOut } = useAuth()
@@ -53,9 +54,12 @@ export function Sidebar({ onAddAccount, isOpen = false, onClose }: SidebarProps)
   useEffect(() => {
     if (!user) return
     apiFetch<DashboardSummary>("/api/dashboard/summary").then((s) => {
-      if (s) setCriticalAlerts(s.critical_alerts)
+      if (s) {
+        setCriticalAlerts(s.critical_alerts)
+        onCriticalAlerts?.(s.critical_alerts)
+      }
     })
-  }, [user])
+  }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fecha o drawer ao navegar no mobile
   useEffect(() => {
@@ -106,7 +110,7 @@ export function Sidebar({ onAddAccount, isOpen = false, onClose }: SidebarProps)
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5" aria-label="Navegação principal">
+        <nav className="flex-1 overflow-y-auto min-h-0 px-3 py-3 space-y-0.5" aria-label="Navegação principal">
           {NAV.map((item) => {
             const active = pathname === item.href
             const badge  = item.badgeKey === "anomalies" && criticalAlerts != null && criticalAlerts > 0
