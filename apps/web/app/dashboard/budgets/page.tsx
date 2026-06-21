@@ -83,6 +83,7 @@ export default function BudgetsPage() {
     if (!user) return
     setLoading(true)
     apiFetch<ApiBudget[]>("/api/budgets/").then((data) => {
+      if (data === null) addToast("Erro ao carregar orçamentos. Verifique sua conexão.")
       setBudgets((data ?? []).map(mapApiBudget))
       setLoading(false)
     })

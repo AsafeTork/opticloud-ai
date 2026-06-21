@@ -31,6 +31,7 @@ export default function AnomaliesPage() {
 
   const [anomalies, setAnomalies] = useState<Anomaly[]>([])
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(false)
   const [filter, setFilter] = useState<Filter>("all")
 
   useEffect(() => {
@@ -41,6 +42,7 @@ export default function AnomaliesPage() {
     if (!user) return
     setLoading(true)
     apiFetch<Anomaly[]>("/api/dashboard/anomalies").then((data) => {
+      if (data === null) setFetchError(true)
       setAnomalies(data ?? [])
       setLoading(false)
     })
@@ -59,6 +61,12 @@ export default function AnomaliesPage() {
   return (
     <DashboardShell title="Anomalias" breadcrumb="Dashboard / Anomalias">
       <div className="space-y-4">
+        {fetchError && (
+          <div className="flex items-center gap-3 rounded-xl border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-warning">
+            <AlertTriangle className="size-4 shrink-0" />
+            Erro ao carregar anomalias. Os dados podem estar desatualizados.
+          </div>
+        )}
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3">
           {(["critical", "warning", "info"] as const).map((s) => {

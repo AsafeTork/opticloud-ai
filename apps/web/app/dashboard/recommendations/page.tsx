@@ -44,6 +44,7 @@ export default function RecommendationsPage() {
     if (!user) return
     setLoading(true)
     apiFetch<Recommendation[]>("/api/recommendations/").then((data) => {
+      if (data === null) addToast("Erro ao carregar recomendações. Verifique sua conexão.")
       setRecs(data ?? [])
       setLoading(false)
     })

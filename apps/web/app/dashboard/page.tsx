@@ -97,6 +97,7 @@ export default function DashboardPage() {
         .slice(0, 3)
         .map(mapRecommendation)
     )
+    if (!sum && !trd && !ano && !recs) addToast("Erro ao carregar dados. Verifique sua conexão.")
     setDataLoading(false)
   }, [])
 
