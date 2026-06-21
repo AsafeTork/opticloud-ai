@@ -127,16 +127,17 @@ async function getCostTrendsFromDb(orgId: string): Promise<CostTrendPoint[]> {
     const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
     const label = d.toLocaleString('pt-BR', { month: 'short', year: '2-digit' })
     const factor = 0.82 + i * 0.036
-    const totals: Record<CloudProvider, number> = { aws: 0, gcp: 0, azure: 0 }
+    const totals = { gcp: 0, azure: 0 }
     for (const acc of accounts) {
-      totals[acc.provider as CloudProvider] += ((acc.monthly_cost_usd as number | null) ?? 0) * factor
+      const p = acc.provider as CloudProvider
+      if (p === 'gcp' || p === 'azure') totals[p] += ((acc.monthly_cost_usd as number | null) ?? 0) * factor
     }
     return {
       month: label,
-      aws: Math.round(totals.aws * 100) / 100,
+      aws: 0,
       gcp: Math.round(totals.gcp * 100) / 100,
       azure: Math.round(totals.azure * 100) / 100,
-      total: Math.round((totals.aws + totals.gcp + totals.azure) * 100) / 100,
+      total: Math.round((totals.gcp + totals.azure) * 100) / 100,
     }
   })
 }
@@ -155,12 +156,12 @@ export async function getConsolidatedCostTrends(orgId: string): Promise<CostTren
       const monthMap = new Map<string, Record<CloudProvider, number>>()
 
       for (const { month, cost_usd } of gcpData) {
-        const e = monthMap.get(month) ?? { aws: 0, gcp: 0, azure: 0 }
+        const e = monthMap.get(month) ?? { aws: 0 as number, gcp: 0, azure: 0 }
         e.gcp += cost_usd
         monthMap.set(month, e)
       }
       for (const { month, cost_usd } of azureData) {
-        const e = monthMap.get(month) ?? { aws: 0, gcp: 0, azure: 0 }
+        const e = monthMap.get(month) ?? { aws: 0 as number, gcp: 0, azure: 0 }
         e.azure += cost_usd
         monthMap.set(month, e)
       }
@@ -168,7 +169,7 @@ export async function getConsolidatedCostTrends(orgId: string): Promise<CostTren
       if (monthMap.size > 0) {
         return Array.from(monthMap.entries())
           .sort(([a], [b]) => a.localeCompare(b))
-          .map(([month, t]) => ({ month, ...t, total: t.aws + t.gcp + t.azure }))
+          .map(([month, t]) => ({ month, aws: 0, gcp: t.gcp, azure: t.azure, total: t.gcp + t.azure }))
       }
     }
 

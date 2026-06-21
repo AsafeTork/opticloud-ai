@@ -4,10 +4,9 @@ import { useState } from "react"
 import { X, Cloud, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-type Provider = "aws" | "gcp" | "azure"
+type Provider = "gcp" | "azure"
 
 const PROVIDERS: { id: Provider; label: string; description: string }[] = [
-  { id: "aws",   label: "Amazon Web Services", description: "Conecte via IAM Role ou Access Key"  },
   { id: "gcp",   label: "Google Cloud Platform", description: "Autentique com Service Account JSON" },
   { id: "azure", label: "Microsoft Azure",      description: "Use App Registration + Client Secret" },
 ]

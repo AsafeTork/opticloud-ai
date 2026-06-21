@@ -118,10 +118,9 @@ export default function DashboardPage() {
   }
 
   const providerItems = summary ? (() => {
-    const { aws = 0, gcp = 0, azure = 0 } = summary.cost_by_provider
-    const total = aws + gcp + azure || 1
+    const { gcp = 0, azure = 0 } = summary.cost_by_provider
+    const total = gcp + azure || 1
     return [
-      { name: "Amazon Web Services",   amount: aws,   pct: Math.round(aws / total * 100),   color: "text-chart-1", bar: "bg-chart-1" },
       { name: "Google Cloud Platform", amount: gcp,   pct: Math.round(gcp / total * 100),   color: "text-chart-2", bar: "bg-chart-2" },
       { name: "Microsoft Azure",       amount: azure, pct: Math.round(azure / total * 100), color: "text-chart-3", bar: "bg-chart-3" },
     ].filter((p) => p.amount > 0)
