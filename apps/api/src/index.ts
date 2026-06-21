@@ -6,6 +6,9 @@ import rateLimit from '@fastify/rate-limit'
 import { accountRoutes } from './routes/accounts.js'
 import { recommendationRoutes } from './routes/recommendations.js'
 import { dashboardRoutes } from './routes/dashboard.js'
+import { profileRoutes } from './routes/profile.js'
+import { organizationRoutes } from './routes/organization.js'
+import { budgetRoutes } from './routes/budgets.js'
 
 const app = Fastify({ logger: { level: process.env['LOG_LEVEL'] ?? 'info' } })
 
@@ -20,6 +23,9 @@ async function bootstrap(): Promise<void> {
   await app.register(accountRoutes, { prefix: '/api/accounts' })
   await app.register(recommendationRoutes, { prefix: '/api/recommendations' })
   await app.register(dashboardRoutes, { prefix: '/api/dashboard' })
+  await app.register(profileRoutes, { prefix: '/api/profile' })
+  await app.register(organizationRoutes, { prefix: '/api/organization' })
+  await app.register(budgetRoutes, { prefix: '/api/budgets' })
 
   app.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }))
 
