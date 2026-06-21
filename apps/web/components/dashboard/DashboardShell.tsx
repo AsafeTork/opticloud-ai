@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Bell, RefreshCw, Menu } from "lucide-react"
 import { Sidebar } from "./Sidebar"
 import { AddAccountModal } from "./AddAccountModal"
@@ -14,6 +15,7 @@ interface DashboardShellProps {
 }
 
 export function DashboardShell({ title, breadcrumb, children, onToast }: DashboardShellProps) {
+  const router = useRouter()
   const [modalOpen, setModalOpen]     = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [refreshing, setRefreshing]   = useState(false)
@@ -22,9 +24,10 @@ export function DashboardShell({ title, breadcrumb, children, onToast }: Dashboa
 
   async function handleRefresh() {
     setRefreshing(true)
-    await new Promise((r) => setTimeout(r, 900))
+    router.refresh()
+    await new Promise((r) => setTimeout(r, 600))
     setRefreshing(false)
-    onToast?.("Dados atualizados com sucesso.")
+    onToast?.("Dados atualizados.")
   }
 
   const initials     = (user?.email ?? "??").slice(0, 2).toUpperCase()

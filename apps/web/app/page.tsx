@@ -50,7 +50,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background flex">
+    <main className="min-h-[100dvh] bg-background flex">
       {/* Painel esquerdo — visual */}
       <aside className="hidden lg:flex flex-col justify-between w-[480px] shrink-0 bg-card border-r border-border p-10 relative overflow-hidden">
         {/* Grid decorativo de fundo */}
